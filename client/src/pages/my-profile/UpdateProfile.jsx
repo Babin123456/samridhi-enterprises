@@ -7,7 +7,6 @@ import {
   updateProfile,
   getSingleDetail,
   uploadAvatar,
-  logoutUser,
 } from "@/store/auth-slice/user";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -91,9 +90,8 @@ const UpdateProfile = () => {
     dispatch(updateProfile(formDataToSend))
       .unwrap()
       .then(() => {
-        toast.success("Profile updated successfully. Please re-login.");
-        dispatch(logoutUser());
-        navigate("/login");
+        toast.success("Profile updated successfully.");
+        navigate("/my-profile");
       })
       .catch((error) =>
         toast.error(error.message || "Failed to update profile")

@@ -633,6 +633,12 @@ export const updateUserDetails = catchAsyncErrors(async (req, res) => {
       message: "User details updated successfully",
       error: false,
       success: true,
+      // Return the updated user under `user` (matching the login and /me
+      // response shape) so the client can refresh its auth state without a
+      // re-login. `data` is kept for backward compatibility with any existing
+      // consumer. No new token is issued: the JWT is keyed on the user id,
+      // which never changes here, so the current token stays valid.
+      user: updateUser,
       data: updateUser,
     });
   } catch (error) {

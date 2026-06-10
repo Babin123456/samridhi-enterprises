@@ -104,16 +104,18 @@ export const updateProfile = createAsyncThunk(
         }
       );
 
-      const { token: newToken, user } = response.data || {};
+      // The update endpoint returns the user under `user` (and `data` for
+      // backward compatibility) and intentionally issues no new token — the
+      // existing JWT is keyed on the user id, which is unchanged, so it stays
+      // valid. Read the user from whichever key is present and keep the
+      // current token in place.
+      const updatedUser = response.data?.user ?? response.data?.data ?? null;
 
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
-      }
-      if (newToken) {
-        localStorage.setItem("token", newToken);
+      if (updatedUser) {
+        localStorage.setItem("user", JSON.stringify(updatedUser));
       }
 
-      return { token: newToken, user };
+      return { user: updatedUser };
     } catch (error) {
       return rejectWithValue(
         error.response?.data || { message: "Profile update failed!" }
@@ -340,11 +342,25 @@ export const deleteUser = createAsyncThunk(
   }
 );
 
-const storedUser = localStorage.getItem("user");
+// Safely parse the persisted user. A prior bug could store the literal string
+// "undefined" here, which makes JSON.parse throw and crashes store init (the
+// user appears logged out on every reload). Fall back to null on any failure.
+const safeParseUser = () => {
+  const raw = localStorage.getItem("user");
+  if (!raw || raw === "undefined" || raw === "null") return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("user");
+    return null;
+  }
+};
+
+const storedUser = safeParseUser();
 const storedToken = localStorage.getItem("token") || null;
 
 const initialState = {
-  user: storedUser ? JSON.parse(storedUser) : null,
+  user: storedUser,
   isAuthenticated: !!storedToken,
   token: storedToken,
   loading: false,
@@ -446,9 +462,14 @@ const authSlice = createSlice({
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user;
-
-        localStorage.setItem("user", JSON.stringify(state.user));
+        // Merge the returned fields into the existing user rather than
+        // replacing it wholesale. Guards against a missing payload wiping the
+        // user (which previously stored the string "undefined" in localStorage
+        // and crashed JSON.parse on the next app load).
+        if (action.payload.user) {
+          state.user = { ...state.user, ...action.payload.user };
+          localStorage.setItem("user", JSON.stringify(state.user));
+        }
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
