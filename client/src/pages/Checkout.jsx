@@ -1,0 +1,388 @@
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+// eslint-disable-next-line no-unused-vars
+import { motion } from "framer-motion";
+import { fetchCart } from "../store/cart/cartSlice";
+import {
+  createOrder,
+  clearOrderError,
+  clearOrderSuccess,
+} from "../store/order/orderSlice";
+import { getPaymentSettings } from "../store/order/paymentSettingsSlice";
+import Loader from "../extras/Loader";
+
+const Checkout = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const { cart } = useSelector((state) => state.cart);
+  const { user } = useSelector((state) => state.auth);
+  const { settings } = useSelector((state) => state.paymentSettings);
+  const { loading, error, success, lastCreatedOrder } = useSelector(
+    (state) => state.order
+  );
+
+  const [form, setForm] = useState({
+    fullName: "",
+    phone: "",
+    addressLine: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+  const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [screenshot, setScreenshot] = useState(null);
+  const [screenshotPreview, setScreenshotPreview] = useState("");
+  const [upiReference, setUpiReference] = useState("");
+
+  useEffect(() => {
+    dispatch(fetchCart());
+    dispatch(getPaymentSettings());
+  }, [dispatch]);
+
+  // Prefill name/phone from the logged-in user once available.
+  useEffect(() => {
+    if (user) {
+      setForm((prev) => ({
+        ...prev,
+        fullName: prev.fullName || user.name || "",
+        phone: prev.phone || user.mobile || "",
+      }));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearOrderError());
+    }
+  }, [error, dispatch]);
+
+  // On a successful order, sync the (now empty) cart and go to order history.
+  useEffect(() => {
+    if (success && lastCreatedOrder) {
+      toast.success(
+        paymentMethod === "COD"
+          ? "Order placed successfully!"
+          : "Order placed. Payment is pending verification."
+      );
+      dispatch(fetchCart());
+      dispatch(clearOrderSuccess());
+      navigate("/my-orders");
+    }
+  }, [success, lastCreatedOrder, paymentMethod, dispatch, navigate]);
+
+  const total = useMemo(() => cart?.total || 0, [cart]);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleScreenshot = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScreenshot(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+  };
+
+  const handlePlaceOrder = () => {
+    // Required address fields
+    const required = ["fullName", "phone", "addressLine", "city", "pincode"];
+    const missing = required.filter((f) => !String(form[f]).trim());
+    if (missing.length > 0) {
+      toast.error("Please fill all required address fields");
+      return;
+    }
+    if (paymentMethod === "Online" && !screenshot) {
+      toast.error("Please upload your payment screenshot");
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("fullName", form.fullName);
+    fd.append("phone", form.phone);
+    fd.append("addressLine", form.addressLine);
+    fd.append("city", form.city);
+    fd.append("state", form.state);
+    fd.append("pincode", form.pincode);
+    fd.append("paymentMethod", paymentMethod);
+    fd.append("upiReference", upiReference);
+    if (paymentMethod === "Online" && screenshot) {
+      fd.append("paymentScreenshot", screenshot);
+    }
+    dispatch(createOrder(fd));
+  };
+
+  if (loading) return <Loader />;
+
+  if (!cart || !cart.items || cart.items.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pt-28 pb-16 px-4">
+        <div className="max-w-2xl mx-auto text-center bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-10">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Your cart is empty
+          </h2>
+          <p className="text-gray-600 mb-8">
+            Add some products before proceeding to checkout.
+          </p>
+          <Link
+            to="/products"
+            className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300"
+          >
+            Browse Products
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const inputClass =
+    "w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white";
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pt-28 pb-16">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8"
+      >
+        <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-blue-600 bg-clip-text text-transparent mb-10">
+          Checkout
+        </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left: address + payment */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Shipping address */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 lg:p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Shipping Address
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    name="fullName"
+                    value={form.fullName}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Full name"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone *
+                  </label>
+                  <input
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Phone number"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address *
+                  </label>
+                  <input
+                    name="addressLine"
+                    value={form.addressLine}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="House no, street, area"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City *
+                  </label>
+                  <input
+                    name="city"
+                    value={form.city}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="City"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    name="state"
+                    value={form.state}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="State"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pincode *
+                  </label>
+                  <input
+                    name="pincode"
+                    value={form.pincode}
+                    onChange={handleChange}
+                    className={inputClass}
+                    placeholder="Pincode"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment method */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 lg:p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Payment Method
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("COD")}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                    paymentMethod === "COD"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">
+                    Cash on Delivery
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Pay when your order arrives
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("Online")}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                    paymentMethod === "Online"
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">
+                    Online Payment (UPI)
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    Pay via UPI and upload screenshot
+                  </div>
+                </button>
+              </div>
+
+              {paymentMethod === "Online" && (
+                <div className="border-t border-gray-200 pt-6 space-y-5">
+                  <div className="flex flex-col sm:flex-row gap-6 items-start">
+                    <div className="flex-shrink-0">
+                      {settings?.qrImage?.url ? (
+                        <img
+                          src={settings.qrImage.url}
+                          alt="UPI QR Code"
+                          className="w-44 h-44 object-contain rounded-2xl border border-gray-200 bg-white p-2"
+                        />
+                      ) : (
+                        <div className="w-44 h-44 rounded-2xl border border-dashed border-gray-300 flex items-center justify-center text-center text-sm text-gray-400 p-3">
+                          QR code not configured yet
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 mb-1">Pay to UPI ID</p>
+                      <p className="text-lg font-semibold text-gray-900 mb-4 break-all">
+                        {settings?.upiId || "Not configured"}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Scan the QR or pay to the UPI ID above, then upload a
+                        screenshot of the successful payment below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      UPI Reference / Transaction ID (optional)
+                    </label>
+                    <input
+                      value={upiReference}
+                      onChange={(e) => setUpiReference(e.target.value)}
+                      className={inputClass}
+                      placeholder="e.g. 4012XXXXXX"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Payment Screenshot *
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleScreenshot}
+                      className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-blue-500 file:text-white file:font-semibold hover:file:bg-blue-600"
+                    />
+                    {screenshotPreview && (
+                      <img
+                        src={screenshotPreview}
+                        alt="Payment screenshot preview"
+                        className="mt-3 w-40 h-40 object-cover rounded-xl border border-gray-200"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: order summary */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-28 bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 lg:p-8">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                Order Summary
+              </h3>
+              <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
+                {cart.items.map((item, idx) => (
+                  <div
+                    key={item.part?._id || item._id || idx}
+                    className="flex justify-between items-center text-sm"
+                  >
+                    <span className="text-gray-700 pr-2">
+                      {item.name}{" "}
+                      <span className="text-gray-400">x{item.quantity}</span>
+                    </span>
+                    <span className="font-semibold text-gray-900 whitespace-nowrap">
+                      ₹{item.price?.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-gray-200 pt-4 mb-6">
+                <div className="flex justify-between items-center text-xl font-bold">
+                  <span className="text-gray-900">Total</span>
+                  <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+                    ₹{total.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={handlePlaceOrder}
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
+              >
+                {loading ? "Placing Order..." : "Place Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default Checkout;

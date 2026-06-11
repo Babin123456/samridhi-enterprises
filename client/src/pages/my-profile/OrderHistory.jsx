@@ -1,0 +1,293 @@
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+// eslint-disable-next-line no-unused-vars
+import { motion } from "framer-motion";
+import jsPDF from "jspdf";
+import {
+  getMyOrders,
+  clearOrderError,
+} from "../../store/order/orderSlice";
+import Loader from "../../extras/Loader";
+
+const statusColor = (status) => {
+  switch (status) {
+    case "Success":
+    case "Confirmed":
+    case "Delivered":
+      return "bg-green-100 text-green-800";
+    case "Pending":
+    case "Pending Verification":
+    case "Processing":
+    case "Shipped":
+      return "bg-yellow-100 text-yellow-800";
+    case "Failed":
+    case "Cancelled":
+      return "bg-red-100 text-red-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+};
+
+const formatDate = (d) =>
+  new Date(d).toLocaleString("en-IN", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const generateReceiptPDF = (order, user) => {
+  const doc = new jsPDF();
+  const left = 15;
+  let y = 20;
+
+  doc.setFontSize(18);
+  doc.text("Samridhi Enterprises", 105, y, { align: "center" });
+  y += 7;
+  doc.setFontSize(11);
+  doc.text("Order Receipt", 105, y, { align: "center" });
+  y += 6;
+  doc.setLineWidth(0.4);
+  doc.line(left, y, 195, y);
+  y += 8;
+
+  doc.setFontSize(10);
+  doc.text(`Receipt No: ${order._id}`, left, y);
+  y += 6;
+  doc.text(`Date: ${formatDate(order.createdAt)}`, left, y);
+  y += 6;
+  doc.text(
+    `Payment: ${order.paymentMethod} (${order.paymentStatus})`,
+    left,
+    y
+  );
+  y += 6;
+  doc.text(`Order Status: ${order.orderStatus}`, left, y);
+  if (order.upiReference) {
+    y += 6;
+    doc.text(`UPI Reference: ${order.upiReference}`, left, y);
+  }
+  y += 10;
+
+  const addr = order.shippingAddress || {};
+  doc.setFont(undefined, "bold");
+  doc.text("Billed / Shipped To:", left, y);
+  doc.setFont(undefined, "normal");
+  y += 6;
+  doc.text(`${addr.fullName || user?.name || ""}`, left, y);
+  y += 6;
+  if (user?.email) {
+    doc.text(`${user.email}`, left, y);
+    y += 6;
+  }
+  doc.text(`${addr.addressLine || ""}`, left, y);
+  y += 6;
+  doc.text(
+    `${addr.city || ""}${addr.state ? ", " + addr.state : ""} - ${
+      addr.pincode || ""
+    }`,
+    left,
+    y
+  );
+  y += 6;
+  doc.text(`Phone: ${addr.phone || ""}`, left, y);
+  y += 10;
+
+  // Items table header
+  doc.setFont(undefined, "bold");
+  doc.text("Item", left, y);
+  doc.text("Qty", 120, y);
+  doc.text("Unit (Rs.)", 140, y);
+  doc.text("Total (Rs.)", 172, y);
+  doc.setFont(undefined, "normal");
+  y += 3;
+  doc.line(left, y, 195, y);
+  y += 6;
+
+  (order.items || []).forEach((item) => {
+    const name =
+      item.name.length > 40 ? item.name.slice(0, 37) + "..." : item.name;
+    const lineTotal = item.price * item.quantity;
+    doc.text(name, left, y);
+    doc.text(String(item.quantity), 122, y, { align: "center" });
+    doc.text(Number(item.price).toLocaleString("en-IN"), 150, y, {
+      align: "right",
+    });
+    doc.text(Number(lineTotal).toLocaleString("en-IN"), 188, y, {
+      align: "right",
+    });
+    y += 7;
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+  });
+
+  y += 2;
+  doc.line(left, y, 195, y);
+  y += 8;
+  doc.setFont(undefined, "bold");
+  doc.setFontSize(12);
+  doc.text("Grand Total:", 140, y);
+  doc.text(
+    "Rs. " + Number(order.itemsTotal).toLocaleString("en-IN"),
+    188,
+    y,
+    { align: "right" }
+  );
+  doc.setFont(undefined, "normal");
+
+  y += 14;
+  doc.setFontSize(9);
+  doc.text(
+    "Thank you for shopping with Samridhi Enterprises.",
+    105,
+    y,
+    { align: "center" }
+  );
+
+  doc.save(`receipt-${order._id}.pdf`);
+};
+
+const OrderHistory = () => {
+  const dispatch = useDispatch();
+  const { myOrders, loading, error } = useSelector((state) => state.order);
+  const { user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    dispatch(getMyOrders());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearOrderError());
+    }
+  }, [error, dispatch]);
+
+  if (loading) return <Loader />;
+
+  if (!myOrders || myOrders.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pt-28 pb-16 px-4">
+        <div className="max-w-2xl mx-auto text-center bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-10">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            No orders yet
+          </h2>
+          <p className="text-gray-600 mb-8">
+            Your placed orders will appear here.
+          </p>
+          <Link
+            to="/products"
+            className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300"
+          >
+            Browse Products
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pt-28 pb-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-blue-600 bg-clip-text text-transparent mb-10">
+          My Orders
+        </h1>
+
+        <div className="space-y-6">
+          {myOrders.map((order) => {
+            const canDownload =
+              order.orderStatus !== "Cancelled" &&
+              order.orderStatus !== "Pending Verification";
+            return (
+              <motion.div
+                key={order._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 lg:p-8"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-xs text-gray-400">Order ID</p>
+                    <p className="font-mono text-sm text-gray-700 break-all">
+                      {order._id}
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {formatDate(order.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor(
+                        order.orderStatus
+                      )}`}
+                    >
+                      {order.orderStatus}
+                    </span>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColor(
+                        order.paymentStatus
+                      )}`}
+                    >
+                      Payment: {order.paymentStatus}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                      {order.paymentMethod}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-100 pt-4 space-y-2 mb-4">
+                  {order.items.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center text-sm"
+                    >
+                      <span className="text-gray-700 pr-2">
+                        {item.name}{" "}
+                        <span className="text-gray-400">x{item.quantity}</span>
+                      </span>
+                      <span className="font-semibold text-gray-900 whitespace-nowrap">
+                        ₹{(item.price * item.quantity).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {order.rejectionReason && (
+                  <div className="mb-4 text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2">
+                    Rejection reason: {order.rejectionReason}
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-gray-100 pt-4">
+                  <div className="text-lg font-bold text-gray-900">
+                    Total: ₹{order.itemsTotal.toLocaleString()}
+                  </div>
+                  <button
+                    onClick={() => generateReceiptPDF(order, user)}
+                    disabled={!canDownload}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm shadow hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    title={
+                      canDownload
+                        ? "Download receipt"
+                        : "Receipt available after the order is confirmed"
+                    }
+                  >
+                    Download Receipt
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OrderHistory;

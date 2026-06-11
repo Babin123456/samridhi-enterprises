@@ -55,12 +55,16 @@ import brandRouter from "./route/brandRoutes.js";
 import bikeModelRouter from "./route/bikeModelRoutes.js";
 import partRouter from "./route/partRoutes.js";
 import cartRouter from "./route/cartRoutes.js";
+import orderRouter from "./route/orderRoutes.js";
+import paymentSettingsRouter from "./route/paymentSettingsRoutes.js";
 
 app.use("/api/user", userRouter);
 app.use("/api/brand", brandRouter);
 app.use("/api/bike-model", bikeModelRouter);
 app.use("/api/parts", partRouter)
 app.use("/api/cart", cartRouter)
+app.use("/api/orders", orderRouter)
+app.use("/api/payment-settings", paymentSettingsRouter)
 
 connectDB().then(() => {
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));

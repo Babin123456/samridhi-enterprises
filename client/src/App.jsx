@@ -23,6 +23,10 @@ import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { fetchCart } from "./store/cart/cartSlice";
 import ProductsPage from "./pages/products/ProductsPage";
+import Checkout from "./pages/Checkout";
+import OrderHistory from "./pages/my-profile/OrderHistory";
+import AdminOrders from "./pages/admin/AdminOrders";
+import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
 
 function App() {
   const dispatch = useDispatch();
@@ -87,6 +91,22 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/my-orders"
+          element={
+            <ProtectedRoute>
+              <OrderHistory />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/admin/dashboard"
@@ -117,6 +137,22 @@ function App() {
           element={
             <ProtectedRoute isAdmin={true}>
               <AdminPartPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/orders"
+          element={
+            <ProtectedRoute isAdmin={true}>
+              <AdminOrders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/payment-settings"
+          element={
+            <ProtectedRoute isAdmin={true}>
+              <AdminPaymentSettings />
             </ProtectedRoute>
           }
         />

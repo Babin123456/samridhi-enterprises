@@ -5,6 +5,8 @@ import brandSlice from "./product/brandSlice";
 import bikeSlice from "./product/bikeSlice";
 import partSlice from "./product/partsSlice";
 import cartSlice from "./cart/cartSlice";
+import orderSlice from "./order/orderSlice";
+import paymentSettingsSlice from "./order/paymentSettingsSlice";
 
 const store = configureStore({
   reducer: {
@@ -14,6 +16,8 @@ const store = configureStore({
     bike: bikeSlice,
     parts: partSlice,
     cart: cartSlice,
+    order: orderSlice,
+    paymentSettings: paymentSettingsSlice,
   },
 });
 

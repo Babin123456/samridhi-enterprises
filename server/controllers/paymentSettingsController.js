@@ -1,0 +1,61 @@
+import PaymentSettings from "../models/paymentSettingsModel.js";
+import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
+import { uploadImage, deleteImage } from "../utils/cloudinary.js";
+
+// GET /api/payment-settings  (auth)
+// Returns the store's UPI details for the checkout page. Safe defaults are
+// returned when the admin has not configured anything yet.
+export const getPaymentSettings = catchAsyncErrors(async (req, res, next) => {
+  const settings = await PaymentSettings.findOne();
+  res.status(200).json({
+    success: true,
+    settings: settings || { upiId: "", qrImage: { public_id: "", url: "" } },
+  });
+});
+
+// PUT /api/payment-settings/admin/update  (auth, admin, multipart: optional "qrImage")
+// Creates or updates the single PaymentSettings document.
+export const adminUpdatePaymentSettings = catchAsyncErrors(
+  async (req, res, next) => {
+    const { upiId } = req.body;
+
+    let settings = await PaymentSettings.findOne();
+    if (!settings) {
+      settings = new PaymentSettings();
+    }
+
+    if (typeof upiId === "string") {
+      settings.upiId = upiId.trim();
+    }
+
+    if (req.file) {
+      const uploaded = await uploadImage(req.file);
+      if (!uploaded || !uploaded.secure_url) {
+        return res.status(500).json({
+          success: false,
+          message: "QR image upload failed. Please try again.",
+        });
+      }
+      // Remove the previous QR from Cloudinary if one existed.
+      if (settings.qrImage && settings.qrImage.public_id) {
+        try {
+          await deleteImage(settings.qrImage.public_id);
+        } catch (delErr) {
+          console.error("Old QR delete failed:", delErr.message);
+        }
+      }
+      settings.qrImage = {
+        public_id: uploaded.public_id,
+        url: uploaded.secure_url,
+      };
+    }
+
+    await settings.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment settings updated successfully",
+      settings,
+    });
+  }
+);

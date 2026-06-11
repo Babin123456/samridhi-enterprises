@@ -75,6 +75,16 @@ const AdminDashboard = () => {
           Add Bike Parts
         </button>
       </Link>
+      <Link to="/admin/orders">
+        <button className="bg-gray-400 p-5 cursor-pointer">
+          Manage Orders
+        </button>
+      </Link>
+      <Link to="/admin/payment-settings">
+        <button className="bg-gray-400 p-5 cursor-pointer">
+          Payment Settings
+        </button>
+      </Link>
     </div>
   );
 };
