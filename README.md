@@ -273,7 +273,75 @@ VITE_BACKEND_URL = https://your-backend-url.vercel.app
 
 ## 📸 Screenshots
 
-*Screenshots will be added as the project UI is finalized.*
+> 📷 Screenshots are being captured and will render here automatically once the image files are added to [`docs/screenshots/`](docs/screenshots/). Contributors: see the [capture guide](docs/screenshots/README.md) for the exact pages, filenames, and viewport sizes to grab.
+
+### 👤 User Interface
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/home-page.png" alt="Home page with hero banner and featured products" width="100%" /><br/>
+      <sub><b>Home Page</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/product-listing.png" alt="Product listing with brand and model filters" width="100%" /><br/>
+      <sub><b>Product Listing</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/product-details.png" alt="Single product details page" width="100%" /><br/>
+      <sub><b>Product Details</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/cart.png" alt="Shopping cart with items" width="100%" /><br/>
+      <sub><b>Cart</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">
+      <img src="docs/screenshots/checkout.png" alt="Checkout and address step" width="50%" /><br/>
+      <sub><b>Checkout Flow</b></sub>
+    </td>
+  </tr>
+</table>
+
+### 🛡️ Admin Interface
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/admin-dashboard.png" alt="Admin dashboard overview" width="100%" /><br/>
+      <sub><b>Admin Dashboard</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/admin-analytics.png" alt="Sales analytics charts" width="100%" /><br/>
+      <sub><b>Sales Analytics</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/admin-products.png" alt="Product management table" width="100%" /><br/>
+      <sub><b>Product Management</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/admin-orders.png" alt="Order management table" width="100%" /><br/>
+      <sub><b>Order Management</b></sub>
+    </td>
+  </tr>
+</table>
+
+### 📱 Mobile Experience
+
+<p align="center">
+  <img src="docs/screenshots/mobile-home.png" alt="Mobile home" width="200" />
+  &nbsp;
+  <img src="docs/screenshots/mobile-products.png" alt="Mobile product listing" width="200" />
+  &nbsp;
+  <img src="docs/screenshots/mobile-cart.png" alt="Mobile cart" width="200" />
+  &nbsp;
+  <img src="docs/screenshots/mobile-checkout.png" alt="Mobile checkout" width="200" />
+</p>
 
 ---
 
