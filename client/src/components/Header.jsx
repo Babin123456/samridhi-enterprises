@@ -249,7 +249,7 @@ function Header() {
                     to="/admin/dashboard"
                     className={navLinkClass("/admin/dashboard")}
                   >
-                    Dashboard
+                    Admin Dashboard
                   </Link>
                 </motion.div>
               )}
@@ -454,7 +454,7 @@ function Header() {
                         to="/admin/dashboard"
                         className={mobileNavLinkClass("/admin/dashboard")}
                       >
-                        Dashboard
+                        Admin Dashboard
                       </Link>
                     </motion.div>
                   )}
