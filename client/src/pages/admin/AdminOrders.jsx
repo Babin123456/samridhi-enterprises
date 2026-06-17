@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import {
   adminGetAllOrders,
   adminVerifyPayment,
+  adminUpdateOrderStatus,
   clearOrderError,
 } from "../../store/order/orderSlice";
 import Loader from "../../extras/Loader";
@@ -13,6 +14,18 @@ import Loader from "../../extras/Loader";
 const STATUS_OPTIONS = [
   "",
   "Pending Verification",
+  "Confirmed",
+  "Processing",
+  "Shipped",
+  "Delivered",
+  "Cancelled",
+];
+
+// The fulfilment lifecycle an admin can move an order through. Mirrors the
+// backend FULFILLMENT_STATUSES in orderController.adminUpdateOrderStatus, which
+// only accepts these post-confirmation statuses (payment verification is
+// handled separately via Approve/Reject).
+const FULFILLMENT_STATUSES = [
   "Confirmed",
   "Processing",
   "Shipped",
@@ -86,6 +99,20 @@ const AdminOrders = () => {
       if (adminVerifyPayment.fulfilled.match(res)) {
         toast.success("Payment rejected and order cancelled");
         dispatch(adminGetAllOrders(filter || undefined));
+      }
+    });
+  };
+
+  // Advance an order through its fulfilment lifecycle. The backend enforces the
+  // payment-verified rule (Processing/Shipped/Delivered require a successful
+  // payment); we surface any rejection message it returns.
+  const handleStatusChange = (id, orderStatus) => {
+    dispatch(adminUpdateOrderStatus({ id, orderStatus })).then((res) => {
+      if (adminUpdateOrderStatus.fulfilled.match(res)) {
+        toast.success(`Order status updated to ${orderStatus}`);
+        dispatch(adminGetAllOrders(filter || undefined));
+      } else if (adminUpdateOrderStatus.rejected.match(res)) {
+        toast.error(res.payload || "Failed to update order status");
       }
     });
   };
@@ -246,6 +273,34 @@ const AdminOrders = () => {
                         </button>
                       </div>
                     )}
+
+                    {/* Fulfilment status control — available once the order is
+                        no longer awaiting payment verification and not in a
+                        terminal state. Lets the admin advance the lifecycle
+                        (Confirmed -> Processing -> Shipped -> Delivered) or
+                        cancel. */}
+                    {order.orderStatus !== "Pending Verification" &&
+                      order.orderStatus !== "Delivered" &&
+                      order.orderStatus !== "Cancelled" && (
+                        <div className="border-t border-gray-100 pt-3 mt-1">
+                          <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                            Update fulfilment status
+                          </label>
+                          <select
+                            value={order.orderStatus}
+                            onChange={(e) =>
+                              handleStatusChange(order._id, e.target.value)
+                            }
+                            className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          >
+                            {FULFILLMENT_STATUSES.map((st) => (
+                              <option key={st} value={st}>
+                                {st}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                   </div>
                 </div>
               </motion.div>

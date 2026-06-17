@@ -11,6 +11,55 @@ import {
 } from "../../store/order/orderSlice";
 import Loader from "../../extras/Loader";
 
+// The fulfilment stages a normal order moves through, in order. Used by the
+// customer-facing tracker so a buyer can see how far along their order is.
+const TRACKER_STAGES = ["Confirmed", "Processing", "Shipped", "Delivered"];
+
+// Horizontal step tracker showing an order's progress through its lifecycle.
+// Cancelled / Pending-Verification orders skip the tracker (handled by the
+// caller) since they are not on the normal Confirmed->Delivered path.
+const OrderTracker = ({ orderStatus }) => {
+  const currentIndex = TRACKER_STAGES.indexOf(orderStatus);
+
+  return (
+    <div className="flex items-center w-full my-4" aria-label="Order progress">
+      {TRACKER_STAGES.map((stage, i) => {
+        const reached = i <= currentIndex;
+        const isLast = i === TRACKER_STAGES.length - 1;
+        return (
+          <div key={stage} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                  reached
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-400"
+                }`}
+              >
+                {reached ? "✓" : i + 1}
+              </div>
+              <span
+                className={`mt-1.5 text-[11px] font-medium ${
+                  reached ? "text-blue-700" : "text-gray-400"
+                }`}
+              >
+                {stage}
+              </span>
+            </div>
+            {!isLast && (
+              <div
+                className={`flex-1 h-1 mx-1 rounded-full transition-colors ${
+                  i < currentIndex ? "bg-blue-600" : "bg-gray-200"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const statusColor = (status) => {
   switch (status) {
     case "Success":
@@ -240,6 +289,14 @@ const OrderHistory = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Customer order tracker — only for orders on the normal
+                    fulfilment path. Cancelled and not-yet-confirmed orders
+                    don't show a progress bar. */}
+                {order.orderStatus !== "Cancelled" &&
+                  order.orderStatus !== "Pending Verification" && (
+                    <OrderTracker orderStatus={order.orderStatus} />
+                  )}
 
                 <div className="border-t border-gray-100 pt-4 space-y-2 mb-4">
                   {order.items.map((item, idx) => (
