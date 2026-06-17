@@ -26,9 +26,7 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
   );
 
   if (!cart || cart.items.length === 0) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Your cart is empty" });
+    return next(new ErrorHandler("Your cart is empty", 400));
   }
 
   const { fullName, phone, addressLine, city, state, pincode, upiReference } =
@@ -40,10 +38,7 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
     (field) => !shippingAddress[field] || !String(shippingAddress[field]).trim()
   );
   if (missing.length > 0) {
-    return res.status(400).json({
-      success: false,
-      message: `Missing required address fields: ${missing.join(", ")}`,
-    });
+    return next(new ErrorHandler(`Missing required address fields: ${missing.join(", ")}`, 400));
   }
 
   if (!["COD", "Online"].includes(paymentMethod)) {
@@ -177,9 +172,7 @@ export const getOrderById = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Order not found", 404));
   }
   if (order.user.toString() !== req.user._id.toString()) {
-    return res
-      .status(403)
-      .json({ success: false, message: "Not authorized to view this order" });
+    return next(new ErrorHandler("Not authorized to view this order", 403));
   }
   res.status(200).json({ success: true, order });
 });
@@ -284,10 +277,7 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
     const { orderStatus } = req.body;
 
     if (!FULFILLMENT_STATUSES.includes(orderStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: `orderStatus must be one of: ${FULFILLMENT_STATUSES.join(", ")}`,
-      });
+      return next(new ErrorHandler(`orderStatus must be one of: ${FULFILLMENT_STATUSES.join(", ")}`, 400));
     }
 
     const order = await Order.findById(req.params.id).populate(
@@ -295,9 +285,7 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
       "name email"
     );
     if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Order not found" });
+      return next(new ErrorHandler("Order not found", 404));
     }
 
     // Guard: an order whose payment has not succeeded should not be marked as
