@@ -23,6 +23,7 @@ import Cart from "./pages/Cart";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { fetchCart } from "./store/cart/cartSlice";
+import { getSingleDetail } from "./store/auth-slice/user";
 import ProductsPage from "./pages/products/ProductsPage";
 import Checkout from "./pages/Checkout";
 import OrderHistory from "./pages/my-profile/OrderHistory";
@@ -35,6 +36,9 @@ function App() {
 
   useEffect(() => {
     dispatch(fetchCart());
+    if (localStorage.getItem("token")) {
+      dispatch(getSingleDetail());
+    }
   }, [dispatch]);
   return (
     <div className="">

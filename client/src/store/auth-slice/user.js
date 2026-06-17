@@ -358,6 +358,7 @@ const safeParseUser = () => {
 
 const storedUser = safeParseUser();
 const storedToken = localStorage.getItem("token") || null;
+const storedVerifyEmail = localStorage.getItem("verifyEmail") === "true";
 
 const initialState = {
   user: storedUser,
@@ -371,7 +372,7 @@ const initialState = {
   totalPages: 0,
   success: false,
   message: null,
-  verifyEmail: false,
+  verifyEmail: storedVerifyEmail,
 };
 
 const authSlice = createSlice({

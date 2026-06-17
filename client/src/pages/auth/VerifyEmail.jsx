@@ -15,10 +15,17 @@ const VerifyEmail = () => {
   const { loading, successMessage, verifyEmail } = useSelector(
     (state) => state.otp
   );
-  const { user } = useSelector((state) => state.auth);
+  const { user, isAuthenticated } = useSelector((state) => state.auth);
   const [otp, setOtp] = useState("");
 
-  const redirect = location.search ? location.search.split("=")[1] : "/";
+  const redirect = location.search ? location.search.split("=")[1] : (isAuthenticated ? "/" : "/login");
+
+  useEffect(() => {
+    if (!user?.email) {
+      toast.error("Please log in to verify your email");
+      navigate("/login");
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     if (verifyEmail) {

@@ -23,9 +23,13 @@ const SignUp = () => {
       toast.error("Please fill in all fields");
       return;
     }
-    dispatch(signupUser({ name, email, password }));
-    toast.success("Welcome to Samridhi Enterprises!");
-    navigate("/login");
+    try {
+      await dispatch(signupUser({ name, email, password })).unwrap();
+      toast.success("Welcome to Samridhi Enterprises!");
+      navigate("/login");
+    } catch (err) {
+      // Error is handled by the useEffect listening to state.auth.error
+    }
   };
 
   useEffect(() => {
