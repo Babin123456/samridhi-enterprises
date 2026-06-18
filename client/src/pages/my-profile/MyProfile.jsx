@@ -205,7 +205,7 @@ const MyProfile = () => {
                   icon: Lock,
                   label: "Update Password",
                 },
-                { to: "/saved-address", icon: MapPin, label: "Saved Address" },
+                { to: "/my-addresses", icon: MapPin, label: "Saved Address" },
                 {
                   to: "/update-profile",
                   icon: User,
@@ -273,7 +273,7 @@ const MyProfile = () => {
             { to: "/my-profile", icon: User, label: "Profile" },
             { to: "/my-orders", icon: ShoppingBag, label: "Orders" },
             { to: "/update-password", icon: Lock, label: "Password" },
-            { to: "/saved-address", icon: MapPin, label: "Address" },
+            { to: "/my-addresses", icon: MapPin, label: "Address" },
             { to: "/update-profile", icon: User, label: "Edit" },
           ].map((link) => (
             <NavLink
