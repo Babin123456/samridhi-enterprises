@@ -2,13 +2,11 @@
 import { motion } from "framer-motion";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
 import {
   TrendingUp,
   Package,
   UserPlus,
   ClipboardList,
-  ArrowLeft,
   IndianRupee,
 } from "lucide-react";
 import { adminGetSalesAnalytics } from "@/store/order/orderSlice";
@@ -305,25 +303,7 @@ const AdminAnalytics = () => {
   const hasGrowth = customerGrowth.some((m) => m.newCustomers > 0);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <motion.h2
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="text-2xl sm:text-3xl font-bold text-blue-900"
-        >
-          Sales Analytics
-        </motion.h2>
-        <Link
-          to="/admin/dashboard"
-          className="flex items-center gap-2 text-sm font-medium text-blue-700 hover:text-blue-900 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Back to Dashboard</span>
-        </Link>
-      </div>
-
+    <div className="mt-10">
       <div className="grid grid-cols-1 gap-6">
         {/* Monthly Sales Trends */}
         <ChartCard

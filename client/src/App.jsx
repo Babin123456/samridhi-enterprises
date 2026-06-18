@@ -151,14 +151,6 @@ function App() {
           }
         />
         <Route
-          path="/admin/analytics"
-          element={
-            <ProtectedRoute isAdmin={true}>
-              <AdminAnalytics />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/admin/brands"
           element={
             <ProtectedRoute isAdmin={true}>

@@ -4,7 +4,7 @@ import User from "../models/userModel.js";
 const auth = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
 
-  if (!token) {
+  if (!token || token === "null") {
     return res
       .status(401)
       .json({ success: false, message: "Please login again" });
@@ -23,7 +23,7 @@ const auth = async (req, res, next) => {
     console.log(error);
     if (error.name === "JsonWebTokenError") {
       return res
-        .status(400)
+        .status(401)
         .json({ success: false, message: "Token expired, please login again" });
     }
 

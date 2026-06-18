@@ -240,7 +240,7 @@ function Header() {
             )}
 
             {/* Dashboard — admin / manager only */}
-            {isAuthenticated &&
+            {isAuthenticated && user &&
               (user.role === "ADMIN" || user.role === "MANAGER") && (
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
@@ -460,7 +460,7 @@ function Header() {
                 )}
 
                 {/* Dashboard */}
-                {isAuthenticated &&
+                {isAuthenticated && user &&
                   (user.role === "ADMIN" || user.role === "MANAGER") && (
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}
