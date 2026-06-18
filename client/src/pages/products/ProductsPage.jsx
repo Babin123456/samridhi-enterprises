@@ -138,7 +138,6 @@ const ProductsPage = () => {
   // search, and the results now fit on 2 pages).
   useEffect(() => {
     setCurrentPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterCategory, filterCompatibility, filterBrand, filterYear, filterEngine, filterStockStatus, sortBy, priceRange]);
 
   const handleFilterCompatibilityChange = (modelId) => {
