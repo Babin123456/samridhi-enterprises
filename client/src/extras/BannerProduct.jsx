@@ -3,7 +3,6 @@ import b1 from "../assets/1.png";
 import b2 from "../assets/2.png";
 import b3 from "../assets/3.png";
 import b4 from "../assets/4.png";
-import b5 from "../assets/5.png";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -14,8 +13,8 @@ const BannerProduct = () => {
   const [direction, setDirection] = useState(1);
   const [isHovering, setIsHovering] = useState(false);
 
-  const desktopImages = [b1, b2, b3, b4, b5];
-  const mobileImages = [b1, b2, b3, b4, b5];
+  const desktopImages = [b1, b2, b3, b4];
+  const mobileImages = [b1, b2, b3, b4];
 
   const nextImage = useCallback(() => {
     setDirection(1);
@@ -219,7 +218,7 @@ const BannerProduct = () => {
             >
               <img
                 src={desktopImages[currentImage]}
-                className="w-full h-full object-cover rounded-xl transform transition-transform duration-1000 hover:scale-105"
+                className="w-full h-full object-fit rounded-xl transform transition-transform duration-1000 hover:scale-105"
                 alt={`Samridhi Enterprises Banner ${currentImage + 1} - Premium Motor Parts`}
                 loading="lazy"
               />
@@ -240,7 +239,7 @@ const BannerProduct = () => {
             >
               <img
                 src={mobileImages[currentImage]}
-                className="w-full h-full object-cover rounded-xl"
+                className="w-full h-full object-fit rounded-xl"
                 alt={`Samridhi Enterprises Mobile Banner ${currentImage + 1} - Premium Motor Parts`}
                 loading="lazy"
               />
