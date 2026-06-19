@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: [true, "Please Enter Your Password"] },
-    avatar: { type: String, default: "" },
+    avatar: { type: String, default: ""  },
     mobile: {
       type: String,
       default: null,
