@@ -131,12 +131,33 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
       return res.status(400).json({ success: false, message: "This coupon does not apply to your order" });
     }
     const claim = await Coupon.findOneAndUpdate(
-      { _id: coupon._id, $or: [{ usageLimit: 0 }, { $expr: { $lt: ["$usedCount", "$usageLimit"] } }] },
+      {
+        _id: coupon._id,
+        isActive: true,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minOrderAmount: coupon.minOrderAmount,
+        maxDiscount: coupon.maxDiscount,
+        $and: [
+          {
+            $or: [
+              { expiresAt: null },
+              { expiresAt: { $gt: new Date() } }
+            ]
+          },
+          {
+            $or: [
+              { usageLimit: 0 },
+              { $expr: { $lt: ["$usedCount", "$usageLimit"] } }
+            ]
+          }
+        ]
+      },
       { $inc: { usedCount: 1 } },
       { new: true }
     );
     if (!claim) {
-      return res.status(400).json({ success: false, message: "This coupon has reached its usage limit" });
+      return res.status(400).json({ success: false, message: "This coupon is no longer valid or has reached its usage limit" });
     }
     appliedCouponCode = coupon.code;
     discount = computed;
