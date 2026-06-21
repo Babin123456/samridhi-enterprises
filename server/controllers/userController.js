@@ -4,7 +4,7 @@ import bcryptjs from "bcryptjs";
 import sendEmail from "../config/sendEmail.js";
 import verifyEmailTemplate from "../template/verifyEmailTemplate.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
-import { deleteImage, uploadImage } from "../utils/cloudinary.js";
+import { deleteImage, uploadImage, getPublicIdFromUrl } from "../utils/cloudinary.js";
 import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
@@ -214,6 +214,22 @@ export const uploadAvatar = catchAsyncErrors(async (req, res, next) => {
 
     if (!image) {
       return next(new ErrorHandler("No image file provided", 400));
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    if (user.avatar) {
+      const publicId = getPublicIdFromUrl(user.avatar);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (delErr) {
+          console.error("Old avatar delete failed:", delErr.message);
+        }
+      }
     }
 
     const upload = await uploadImage(image);
@@ -457,8 +473,14 @@ export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
       const user = await UserModel.findById(userId);
 
       if (user.avatar) {
-        const publicId = user.avatar.split("/").pop().split(".")[0];
-        await deleteImage(`nj/${publicId}`);
+        const publicId = getPublicIdFromUrl(user.avatar);
+        if (publicId) {
+          try {
+            await deleteImage(publicId);
+          } catch (delErr) {
+            console.error("Old avatar delete failed:", delErr.message);
+          }
+        }
       }
 
       const uploadResult = await uploadImage(avatar);
@@ -608,9 +630,14 @@ export const deleteUser = catchAsyncErrors(async (req, res, next) => {
     }
 
     if (user.avatar) {
-      const publicId = user.avatar.split("/").pop().split(".")[0];
-
-      await deleteImage(`ff/${publicId}`);
+      const publicId = getPublicIdFromUrl(user.avatar);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (delErr) {
+          console.error("Old avatar delete failed:", delErr.message);
+        }
+      }
     }
 
     await UserModel.findByIdAndDelete(userId);
