@@ -1,0 +1,45 @@
+# CodeQL static analysis — scans the JavaScript/JSX codebase (client + server)
+# for security vulnerabilities and surfaces them under the repository's
+# Security tab → "Code scanning alerts".
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main, elusoc]
+  pull_request:
+    branches: [main, elusoc]
+  schedule:
+    # Weekly full scan (Sundays 01:30 UTC) so newly disclosed patterns are caught
+    # even when no code changes.
+    - cron: "30 1 * * 0"
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        # The codebase is JavaScript/JSX; the javascript-typescript pack covers
+        # both client (React/Vite) and server (Express).
+        language: ["javascript-typescript"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # JavaScript needs no compilation, so no build step is required.
+          build-mode: none
+          queries: security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
