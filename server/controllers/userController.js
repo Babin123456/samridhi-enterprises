@@ -4,12 +4,12 @@ import bcryptjs from "bcryptjs";
 import sendEmail from "../config/sendEmail.js";
 import verifyEmailTemplate from "../template/verifyEmailTemplate.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
-import { deleteImage, uploadImage } from "../utils/cloudinary.js";
+import { deleteImage, uploadImage, getPublicIdFromUrl } from "../utils/cloudinary.js";
 import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
 
-export const registerUser = catchAsyncErrors(async (req, res) => {
+export const registerUser = catchAsyncErrors(async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
@@ -26,6 +26,9 @@ export const registerUser = catchAsyncErrors(async (req, res) => {
     const otp = generatedOtp();
     const otpExpiry = new Date();
     otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
+
+    // TEMPORARY: Log the OTP to console so you can test without a real Brevo API Key!
+    console.log(`\n=== VERIFICATION OTP FOR ${email} IS: ${otp} ===\n`);
 
     const emailResponse = await sendEmail({
       sendTo: email,
@@ -65,7 +68,7 @@ export const registerUser = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const verifyEmailOtp = catchAsyncErrors(async (req, res) => {
+export const verifyEmailOtp = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
@@ -116,7 +119,7 @@ export const verifyEmailOtp = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const resendOtp = catchAsyncErrors(async (req, res) => {
+export const resendOtp = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -129,6 +132,9 @@ export const resendOtp = catchAsyncErrors(async (req, res) => {
     const newOtp = generatedOtp();
     const newExpiry = new Date();
     newExpiry.setMinutes(newExpiry.getMinutes() + 15);
+
+    // TEMPORARY: Log the OTP to console so you can test without a real Brevo API Key!
+    console.log(`\n=== RESEND OTP FOR ${email} IS: ${newOtp} ===\n`);
 
     const emailResponse = await sendEmail({
       sendTo: email,
@@ -154,7 +160,7 @@ export const resendOtp = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const loginUser = catchAsyncErrors(async (req, res) => {
+export const loginUser = catchAsyncErrors(async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -162,7 +168,6 @@ export const loginUser = catchAsyncErrors(async (req, res) => {
   }
 
   const user = await UserModel.findOne({ email }).select("+password");
-  console.log("User Found:", user);
 
   if (!user) {
     return next(new ErrorHandler("User is not registered", 400));
@@ -172,19 +177,60 @@ export const loginUser = catchAsyncErrors(async (req, res) => {
     return next(new ErrorHandler("Your account is not active. Please contact the admin.", 400));
   }
 
+  // Account lockout: configurable threshold + duration (defaults: 5 attempts, 15 min).
+  const maxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS) || 5;
+  const lockMinutes = Number(process.env.LOGIN_LOCK_MINUTES) || 15;
+
+  // If a lock is currently active, reject before checking the password so a
+  // locked account cannot keep guessing.
+  if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
+    const minutesLeft = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+    return next(
+      new ErrorHandler(
+        `Account temporarily locked due to too many failed login attempts. Try again in ${minutesLeft} minute(s).`,
+        429
+      )
+    );
+  }
+
+  // A previously set lock has now expired — clear it before proceeding.
+  if (user.lockUntil && user.lockUntil.getTime() <= Date.now()) {
+    user.lockUntil = null;
+    user.failedAttempts = 0;
+  }
+
   const checkPassword = await user.comparePassword(password);
 
   if (!checkPassword) {
+    user.failedAttempts = (user.failedAttempts || 0) + 1;
+
+    // Threshold reached — lock the account and reset the counter.
+    if (user.failedAttempts >= maxAttempts) {
+      user.lockUntil = new Date(Date.now() + lockMinutes * 60 * 1000);
+      user.failedAttempts = 0;
+      await user.save();
+      return next(
+        new ErrorHandler(
+          `Account temporarily locked due to too many failed login attempts. Try again in ${lockMinutes} minute(s).`,
+          429
+        )
+      );
+    }
+
+    await user.save();
     return next(new ErrorHandler("Incorrect email or password", 400));
   }
 
+  // Successful login — clear any failed-attempt state.
+  user.failedAttempts = 0;
+  user.lockUntil = null;
   user.lastLogin = new Date();
   await user.save();
 
   sendToken(user, 200, res);
 });
 
-export const logoutUser = catchAsyncErrors(async (req, res) => {
+export const logoutUser = catchAsyncErrors(async (req, res, next) => {
   try {
     res.cookie("token", null, {
       expires: new Date(Date.now()),
@@ -201,13 +247,29 @@ export const logoutUser = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const uploadAvatar = catchAsyncErrors(async (req, res) => {
+export const uploadAvatar = catchAsyncErrors(async (req, res, next) => {
   try {
     const userId = req.user._id;
     const image = req.file;
 
     if (!image) {
       return next(new ErrorHandler("No image file provided", 400));
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    if (user.avatar) {
+      const publicId = getPublicIdFromUrl(user.avatar);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (delErr) {
+          console.error("Old avatar delete failed:", delErr.message);
+        }
+      }
     }
 
     const upload = await uploadImage(image);
@@ -273,7 +335,7 @@ export const updatePassword = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-export const forgotPassword = catchAsyncErrors(async (req, res) => {
+export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -285,6 +347,9 @@ export const forgotPassword = catchAsyncErrors(async (req, res) => {
 
     const otp = generatedOtp();
     const expireTime = new Date(new Date().getTime() + 10 * 60 * 1000);
+
+    // TEMPORARY: Log the OTP to console so you can test without a real Brevo API Key!
+    console.log(`\n=== FORGOT PASSWORD OTP FOR ${email} IS: ${otp} ===\n`);
 
     const update = await UserModel.findByIdAndUpdate(user._id, {
       forgot_password_otp: otp,
@@ -315,7 +380,7 @@ export const forgotPassword = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const verifyOtp = catchAsyncErrors(async (req, res) => {
+export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
@@ -354,7 +419,7 @@ export const verifyOtp = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const resetPassword = catchAsyncErrors(async (req, res) => {
+export const resetPassword = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email, newPassword, confirmPassword } = req.body;
 
@@ -401,7 +466,7 @@ export const resetPassword = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const getUserDetails = catchAsyncErrors(async (req, res) => {
+export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
   try {
     console.log("Checking User model:", UserModel);
 
@@ -422,7 +487,7 @@ export const getUserDetails = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const updateUserDetails = catchAsyncErrors(async (req, res) => {
+export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
   try {
     const userId = req.user._id;
     const { name, email, mobile, password } = req.body;
@@ -448,8 +513,14 @@ export const updateUserDetails = catchAsyncErrors(async (req, res) => {
       const user = await UserModel.findById(userId);
 
       if (user.avatar) {
-        const publicId = user.avatar.split("/").pop().split(".")[0];
-        await deleteImage(`nj/${publicId}`);
+        const publicId = getPublicIdFromUrl(user.avatar);
+        if (publicId) {
+          try {
+            await deleteImage(publicId);
+          } catch (delErr) {
+            console.error("Old avatar delete failed:", delErr.message);
+          }
+        }
       }
 
       const uploadResult = await uploadImage(avatar);
@@ -487,7 +558,7 @@ export const updateUserDetails = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const getAllUsers = catchAsyncErrors(async (req, res) => {
+export const getAllUsers = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN" && req.user.role !== "MANAGER") {
       return next(new ErrorHandler("Access denied. Admins only.", 403));
@@ -525,7 +596,7 @@ export const getAllUsers = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const getSingleUser = catchAsyncErrors(async (req, res) => {
+export const getSingleUser = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN" && req.user.role !== "MANAGER") {
       return next(new ErrorHandler("Permission denied. Admins only.", 403));
@@ -551,7 +622,7 @@ export const getSingleUser = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const updateUserRole = catchAsyncErrors(async (req, res) => {
+export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN") {
       return next(new ErrorHandler("Permission denied. Managers only.", 403));
@@ -584,7 +655,7 @@ export const updateUserRole = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const deleteUser = catchAsyncErrors(async (req, res) => {
+export const deleteUser = catchAsyncErrors(async (req, res, next) => {
   try {
     const userId = req.params.id;
 
@@ -599,9 +670,14 @@ export const deleteUser = catchAsyncErrors(async (req, res) => {
     }
 
     if (user.avatar) {
-      const publicId = user.avatar.split("/").pop().split(".")[0];
-
-      await deleteImage(`ff/${publicId}`);
+      const publicId = getPublicIdFromUrl(user.avatar);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (delErr) {
+          console.error("Old avatar delete failed:", delErr.message);
+        }
+      }
     }
 
     await UserModel.findByIdAndDelete(userId);
@@ -617,7 +693,7 @@ export const deleteUser = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const updateUserStatus = catchAsyncErrors(async (req, res) => {
+export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
   try {
     const { status } = req.body;
     const { id } = req.params;

@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
     },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: [true, "Please Enter Your Password"] },
-    avatar: { type: String, default: "" },
+    avatar: { type: String, default: ""  },
     mobile: {
       type: String,
       default: null,
@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     failedAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date, default: null },
     lastLogin: {
       type: Date,
       default: null,
@@ -42,18 +43,6 @@ const userSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.ObjectId,
         ref: "address",
-      },
-    ],
-    shoppingCart: [
-      {
-        type: mongoose.Schema.ObjectId,
-        ref: "cartProduct",
-      },
-    ],
-    shoppingWishlist: [
-      {
-        type: mongoose.Schema.ObjectId,
-        ref: "wishListProduct",
       },
     ],
     orderHistory: [
