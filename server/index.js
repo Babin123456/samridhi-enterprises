@@ -43,9 +43,14 @@ app.use(
   })
 );
 
+import rateLimiter from "./middleware/rateLimiter.js";
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(requestLogger);
+
+// Apply rate limiter to all API endpoints
+app.use("/api", rateLimiter({ max: 200, windowMs: 15 * 60 * 1000 }));
 
 app.get("/", (req, res) => {
   res.send("Server is running: " + PORT);
