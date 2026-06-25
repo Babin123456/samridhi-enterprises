@@ -3,11 +3,52 @@ import axiosInstance from "@/api";
 
 const API_URL = "/api/cart";
 
+// Helper functions for guest cart
+const getGuestCart = () => {
+  try {
+    const cart = localStorage.getItem("guest_cart");
+    return cart ? JSON.parse(cart) : { items: [], total: 0 };
+  } catch (e) {
+    return { items: [], total: 0 };
+  }
+};
+
+const saveGuestCart = (cart) => {
+  localStorage.setItem("guest_cart", JSON.stringify(cart));
+};
+
 export const addToCart = createAsyncThunk(
   "cart/addToCart",
   async ({ partId, quantity }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        // Guest mode - fetch part details from API to construct cart item
+        const guestCart = getGuestCart();
+        const existingItemIndex = guestCart.items.findIndex(
+          (item) => (item.part?._id || item.part) === partId
+        );
+        let partData;
+        if (existingItemIndex >= 0) {
+          const item = guestCart.items[existingItemIndex];
+          partData = item.part;
+          item.quantity += quantity;
+          item.price = partData.price * item.quantity;
+        } else {
+          const partRes = await axiosInstance.get(`/api/parts/${partId}`);
+          partData = partRes.data.part;
+          guestCart.items.push({
+            part: partData,
+            quantity,
+            price: partData.price * quantity,
+            name: partData.name,
+          });
+        }
+        guestCart.total = guestCart.items.reduce((sum, item) => sum + item.price, 0);
+        saveGuestCart(guestCart);
+        return guestCart;
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -31,6 +72,30 @@ export const fetchCart = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        return { success: true, warnings: [], cart: getGuestCart() };
+      }
+
+      // Check if there are items in guest cart that need to be synced
+      const guestCart = getGuestCart();
+      if (guestCart.items && guestCart.items.length > 0) {
+        for (const item of guestCart.items) {
+          const partId = item.part?._id || item.part;
+          const quantity = item.quantity;
+          try {
+            const config = {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            };
+            await axiosInstance.post(`${API_URL}`, { partId, quantity }, config);
+          } catch (e) {
+            console.error("Failed to sync guest cart item:", partId, e);
+          }
+        }
+        localStorage.removeItem("guest_cart");
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -50,6 +115,21 @@ export const updateCartItem = createAsyncThunk(
   async ({ partId, quantity }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        const guestCart = getGuestCart();
+        const itemIndex = guestCart.items.findIndex(
+          (item) => (item.part?._id || item.part) === partId
+        );
+        if (itemIndex >= 0) {
+          const partData = guestCart.items[itemIndex].part;
+          guestCart.items[itemIndex].quantity = quantity;
+          guestCart.items[itemIndex].price = partData.price * quantity;
+          guestCart.total = guestCart.items.reduce((sum, item) => sum + item.price, 0);
+          saveGuestCart(guestCart);
+        }
+        return guestCart;
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -73,6 +153,16 @@ export const removeFromCart = createAsyncThunk(
   async (partId, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        const guestCart = getGuestCart();
+        guestCart.items = guestCart.items.filter(
+          (item) => (item.part?._id || item.part) !== partId
+        );
+        guestCart.total = guestCart.items.reduce((sum, item) => sum + item.price, 0);
+        saveGuestCart(guestCart);
+        return guestCart;
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -96,8 +186,11 @@ export const clearCart = createAsyncThunk(
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        return rejectWithValue("No authentication token found");
+        const guestCart = { items: [], total: 0 };
+        saveGuestCart(guestCart);
+        return guestCart;
       }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
