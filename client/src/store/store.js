@@ -6,6 +6,7 @@ import bikeSlice from "./product/bikeSlice";
 import partSlice from "./product/partsSlice";
 import compareSlice from "./product/compareSlice";
 import cartSlice from "./cart/cartSlice";
+import wishlistSlice from "./wishlist/wishlistSlice";
 import orderSlice from "./order/orderSlice";
 import paymentSettingsSlice from "./order/paymentSettingsSlice";
 import couponSlice from "./order/couponSlice";
@@ -21,6 +22,7 @@ const store = configureStore({
     parts: partSlice,
     compare: compareSlice,
     cart: cartSlice,
+    wishlist: wishlistSlice,
     order: orderSlice,
     paymentSettings: paymentSettingsSlice,
     coupon: couponSlice,

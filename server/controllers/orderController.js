@@ -8,6 +8,8 @@ import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import { uploadImage } from "../utils/cloudinary.js";
 import sendEmail from "../config/sendEmail.js";
 import orderReceiptHtml from "../template/orderReceiptTemplate.js";
+import generateAdminNewOrderEmail from "../template/adminNewOrderTemplate.js";
+import PaymentSettings from "../models/paymentSettingsModel.js";
 
 const REQUIRED_ADDRESS_FIELDS = [
   "fullName",
@@ -258,6 +260,33 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
     console.error("Order email failed:", mailErr.message);
   }
 
+  // Notify store admins of the new order (best-effort, gated by the admin
+  // settings toggle). A failure here must never break order creation, and it
+  // runs in its own try/catch so it cannot trigger the stock-rollback below.
+  try {
+    const settings = await PaymentSettings.findOne();
+    const notifyAdmins = settings ? settings.notifyAdminsOnNewOrder !== false : true;
+    if (notifyAdmins) {
+      const admins = await User.find({
+        role: { $in: ["ADMIN", "MANAGER"] },
+      }).select("email name");
+      if (admins.length > 0) {
+        const adminHtml = generateAdminNewOrderEmail(order, req.user);
+        const adminSubject =
+          paymentMethod === "Online"
+            ? `New Order (Payment Verification Needed) - ${order._id}`
+            : `New Order Received - ${order._id}`;
+        for (const admin of admins) {
+          if (admin.email) {
+            await sendEmail({ sendTo: admin.email, subject: adminSubject, html: adminHtml });
+          }
+        }
+      }
+    }
+  } catch (adminMailErr) {
+    console.error("Admin new-order notification failed:", adminMailErr.message);
+  }
+
     res.status(201).json({
       success: true,
       message:
@@ -297,6 +326,86 @@ export const getOrderById = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Not authorized to view this order", 403));
   }
   res.status(200).json({ success: true, order });
+});
+
+// A customer may cancel their own order only while it is still in an early,
+// reversible state. Once it is Processing / Shipped / Delivered it has entered
+// fulfilment and can no longer be self-cancelled.
+const CUSTOMER_CANCELLABLE_STATUSES = ["Pending Verification", "Confirmed"];
+
+// PUT /api/orders/:id/cancel  (auth, owner only)
+// Customer-initiated cancellation. Verifies ownership, enforces status-based
+// eligibility, restores stock using the same guarded pattern as the admin
+// reject/cancel paths, and emails the customer a cancellation confirmation.
+export const cancelMyOrder = catchAsyncErrors(async (req, res, next) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+
+  // Ownership: a customer can only cancel an order that belongs to them.
+  if (order.user.toString() !== req.user._id.toString()) {
+    return next(new ErrorHandler("Not authorized to cancel this order", 403));
+  }
+
+  if (order.orderStatus === "Cancelled") {
+    return next(new ErrorHandler("This order is already cancelled", 400));
+  }
+
+  if (!CUSTOMER_CANCELLABLE_STATUSES.includes(order.orderStatus)) {
+    return next(
+      new ErrorHandler(
+        `This order is ${order.orderStatus} and can no longer be cancelled. Orders can only be cancelled while they are ${CUSTOMER_CANCELLABLE_STATUSES.join(
+          " or "
+        )}. Please contact support for assistance.`,
+        400
+      )
+    );
+  }
+
+  order.orderStatus = "Cancelled";
+  order.rejectionReason = "Cancelled by customer";
+
+  // Restore stock once, guarded by stockRestored — identical to the restore
+  // used by adminVerifyPayment (reject) and adminUpdateOrderStatus (Cancelled).
+  if (!order.stockRestored) {
+    for (const item of order.items) {
+      if (item.part) {
+        await Part.findByIdAndUpdate(item.part, { $inc: { stock: item.quantity } });
+      }
+    }
+    order.stockRestored = true;
+  }
+
+  await order.save();
+
+  // Best-effort confirmation email — a mail failure must not fail the request.
+  try {
+    const itemsHtml = order.items
+      .map((item) => `<li><strong>${item.name}</strong> &times; ${item.quantity}</li>`)
+      .join("");
+    await sendEmail({
+      sendTo: req.user.email,
+      subject: `Order Cancelled - Order ${order._id}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+        <h2 style="color:#e91e63;">Order Cancellation Confirmation</h2>
+        <p style="color:#555;">Dear ${req.user.name || "Customer"},</p>
+        <p style="color:#555;">Your order <strong>${order._id}</strong> has been cancelled as requested.</p>
+        <ul style="color:#555;">${itemsHtml}</ul>
+        <p style="color:#555;">Any reserved stock has been released. If your payment was already completed, our team will process the refund as per policy.</p>
+        <p style="color:#555;">If you did not request this cancellation, please contact our support team immediately.</p>
+        <p style="color:#555;">Best regards,<br/>Samridhi Enterprises</p>
+      </div>`,
+    });
+  } catch (mailErr) {
+    console.error("Cancellation email failed:", mailErr.message);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Order cancelled successfully",
+    order,
+  });
 });
 
 // GET /api/orders/admin/all?status=...  (auth, admin)

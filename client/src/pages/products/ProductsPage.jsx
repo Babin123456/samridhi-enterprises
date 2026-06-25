@@ -2,13 +2,14 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchParts, clearPartError } from "../../store/product/partsSlice";
 import { addToCompare, removeFromCompare } from "../../store/product/compareSlice";
+import { addToWishlist, removeFromWishlist } from "../../store/wishlist/wishlistSlice";
 import { fetchBikeModels } from "../../store/product/bikeSlice";
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "../../extras/Loader";
 import { Link, useSearchParams } from "react-router-dom";
-import { GitCompare, Check } from "lucide-react";
+import { GitCompare, Check, Heart } from "lucide-react";
 import SEO from "../../components/SEO";
 
 const categories = [
@@ -76,6 +77,9 @@ const ProductsPage = () => {
   const { items: compareItems, max: compareMax } = useSelector(
     (state) => state.compare
   );
+  const { wishlist } = useSelector((state) => state.wishlist);
+  const wishlistItems = wishlist?.items || [];
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const {
     bikeModels = [],
     loading: bikeLoading,
@@ -206,6 +210,23 @@ const ProductsPage = () => {
       dispatch(removeFromCompare(part._id));
     } else {
       dispatch(addToCompare(part));
+    }
+  };
+
+  // Add or remove a product from the user's (server-backed) wishlist.
+  const isInWishlist = (id) =>
+    wishlistItems.some((i) => (i.part?._id || i.part) === id);
+  const toggleWishlist = (e, part) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info("Please log in to use your wishlist");
+      return;
+    }
+    if (isInWishlist(part._id)) {
+      dispatch(removeFromWishlist(part._id));
+    } else {
+      dispatch(addToWishlist(part._id));
     }
   };
 
@@ -628,8 +649,30 @@ const ProductsPage = () => {
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
                   whileHover={{ y: -4 }}
-                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-200 transition-all duration-300 overflow-hidden flex flex-col"
+                  className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-200 transition-all duration-300 overflow-hidden flex flex-col"
                 >
+                  <button
+                    onClick={(e) => toggleWishlist(e, part)}
+                    aria-label={
+                      isInWishlist(part._id)
+                        ? "Remove from wishlist"
+                        : "Add to wishlist"
+                    }
+                    title={
+                      isInWishlist(part._id)
+                        ? "Remove from wishlist"
+                        : "Add to wishlist"
+                    }
+                    className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/90 backdrop-blur shadow hover:bg-white transition"
+                  >
+                    <Heart
+                      className={`w-5 h-5 transition ${
+                        isInWishlist(part._id)
+                          ? "fill-red-500 text-red-500"
+                          : "text-gray-500"
+                      }`}
+                    />
+                  </button>
                   <Link to={`/products/${part._id}`}>
                     <div className="w-full">
                       <motion.img

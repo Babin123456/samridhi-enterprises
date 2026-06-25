@@ -5,9 +5,9 @@ import cookieParser from "cookie-parser";
 import cloudinary from "cloudinary";
 import connectDB from "./config/connectDB.js";
 import errorMiddleware from "./middleware/error.js";
+import requestLogger from "./middleware/requestLogger.js";
 
 dotenv.config();
-
 
 process.on("uncaughtException", (err) => {
   console.error(`Error: ${err.message}`);
@@ -29,6 +29,7 @@ const allowedOrigins = [
   process.env.FRONTEND_WWW_URL,
   "http://localhost:5173",
 ];
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -44,9 +45,9 @@ app.use(
 
 app.use(cookieParser());
 app.use(express.json());
+app.use(requestLogger);
 
 app.get("/", (req, res) => {
-
   res.send("Server is running: " + PORT);
 });
 
@@ -56,6 +57,7 @@ import brandRouter from "./route/brandRoutes.js";
 import bikeModelRouter from "./route/bikeModelRoutes.js";
 import partRouter from "./route/partRoutes.js";
 import cartRouter from "./route/cartRoutes.js";
+import wishlistRouter from "./route/wishlistRoutes.js";
 import orderRouter from "./route/orderRoutes.js";
 import paymentSettingsRouter from "./route/paymentSettingsRoutes.js";
 import couponRouter from "./route/couponRoutes.js";
@@ -67,6 +69,7 @@ app.use("/api/brand", brandRouter);
 app.use("/api/bike-model", bikeModelRouter);
 app.use("/api/parts", partRouter)
 app.use("/api/cart", cartRouter)
+app.use("/api/wishlist", wishlistRouter)
 app.use("/api/orders", orderRouter)
 app.use("/api/payment-settings", paymentSettingsRouter)
 app.use("/api/coupon", couponRouter)
@@ -77,7 +80,6 @@ app.use("/api/address", addressRouter)
 app.use(errorMiddleware);
 
 connectDB().then(() => {
-
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
 });
 

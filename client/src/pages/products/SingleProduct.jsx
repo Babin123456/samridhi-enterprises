@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { getCustomerStockStatus, getStockBadge } from "@/utils/stockStatus";
 import {
   fetchPartById,
   fetchSimilarParts,
@@ -14,12 +15,13 @@ import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import SEO from "../../components/SEO";
-
+import RecommendationRow from "../../components/RecommendationRow";
+import { fetchParts } from "../../store/product/partsSlice";
 const SingleProduct = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { part, loading, error, success, similarParts } = useSelector(
+  const { part, loading, error, success, parts, similarParts } = useSelector(
     (state) => state.parts
   );
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -33,6 +35,7 @@ const SingleProduct = () => {
   useEffect(() => {
     dispatch(fetchPartById(id));
     dispatch(fetchSimilarParts(id));
+    dispatch(fetchParts());
   }, [dispatch, id]);
 
   useEffect(() => {
@@ -56,7 +59,15 @@ const SingleProduct = () => {
       }
     }
   }, [part, user, isAuthenticated]);
+// Filter for Frequently Bought Together (Same category, excluding current product)
+  const frequentlyBought = parts && part
+    ? parts.filter((p) => p._id !== part._id && p.category === part.category).slice(0, 5)
+    : [];
 
+  // Filter for Recommended For You (Different categories, excluding current product)
+  const recommendedForYou = parts && part
+    ? parts.filter((p) => p._id !== part._id && p.category !== part.category).slice(0, 5)
+    : [];
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       toast.error("Please log in to add items to cart");
@@ -125,23 +136,9 @@ const SingleProduct = () => {
     });
   };
 
-  const getStockStatus = () => {
-    if (part.stock === 0)
-      return { text: "Out of Stock", color: "text-red-500", bg: "bg-red-50" };
-    if (part.stock <= 5)
-      return {
-        text: "Only few left!",
-        color: "text-orange-500",
-        bg: "bg-orange-50",
-      };
-    if (part.stock <= 15)
-      return {
-        text: "Limited Stock",
-        color: "text-yellow-600",
-        bg: "bg-yellow-50",
-      };
-    return { text: "In Stock", color: "text-emerald-500", bg: "bg-emerald-50" };
-  };
+  // Delegate to the shared utility — thresholds and labels live in
+  // client/src/utils/stockStatus.js (getCustomerStockStatus).
+  const getStockStatus = () => getCustomerStockStatus(part.stock);
 
   const handleQuantityChange = (e) => {
     const value = e.target.value;
@@ -261,7 +258,7 @@ const SingleProduct = () => {
               transition={{ duration: 0.7 }}
               className="relative p-8 lg:p-12 bg-gradient-to-br from-gray-50 to-white"
             >
-              {part.bestseller && (
+             {part.bestseller && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -269,8 +266,40 @@ const SingleProduct = () => {
                   className="absolute top-4 left-4 z-10 bg-gradient-to-r from-orange-400 to-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg"
                 >
                   Bestseller
-                </motion.div>
-              )}
+                </ motion.div>
+              )}{/* ==================== AI RECOMMENDATIONS SECTIONS ==================== */}
+        <RecommendationRow
+          title="Similar Products"
+          description="Related parts in the same category and compatible with similar vehicles."
+          icon={
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          }
+          products={similarParts}
+        />
+
+        <RecommendationRow
+          title="Frequently Bought Together"
+          description="Customers who purchased this piece also bundled these highly compatible components together."
+          icon={
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+          }
+          products={frequentlyBought}
+        />
+
+        <RecommendationRow
+          title="Recommended For You"
+          description="Personalized updates matched dynamically using your viewing behavior metrics."
+          icon={
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          }
+          products={recommendedForYou}
+        />
 
               <div className="flex justify-center mb-8">
                 <motion.div
@@ -614,16 +643,10 @@ const SingleProduct = () => {
                           </span>
                           <span
                             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              item.stock > 15
-                                ? "bg-green-100 text-green-800"
-                                : item.stock >= 5
-                                ? "bg-yellow-100 text-yellow-800"
-                                : item.stock > 0
-                                ? "bg-orange-100 text-orange-800"
-                                : "bg-red-100 text-red-800"
+                              getStockBadge(item.stock).badgeCls
                             }`}
                           >
-                            {item.stock > 0 ? "In Stock" : "Out of Stock"}
+                            {getStockBadge(item.stock).label}
                           </span>
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400 truncate">

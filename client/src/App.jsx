@@ -6,6 +6,7 @@ import { ToastContainer } from "react-toastify";
 import ProtectedRoute from "./extras/ProtectedRoute";
 import { useDispatch } from "react-redux";
 import { fetchCart } from "./store/cart/cartSlice";
+import { fetchWishlist } from "./store/wishlist/wishlistSlice";
 import { getSingleDetail } from "./store/auth-slice/user";
 import SupportAssistant from "./components/SupportAssistant";
 import CompareTray from "./components/CompareTray";
@@ -30,6 +31,7 @@ const SingleProductPage = lazy(() => import("./pages/products/SingleProduct"));
 const Cart = lazy(() => import("./pages/Cart"));
 const ProductsPage = lazy(() => import("./pages/products/ProductsPage"));
 const ComparePage = lazy(() => import("./pages/products/ComparePage"));
+const WishlistPage = lazy(() => import("./pages/wishlist/WishlistPage"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderHistory = lazy(() => import("./pages/my-profile/OrderHistory"));
 const SupportTickets = lazy(() => import("./pages/my-profile/SupportTickets"));
@@ -48,6 +50,7 @@ function App() {
     dispatch(fetchCart());
     if (localStorage.getItem("token")) {
       dispatch(getSingleDetail());
+      dispatch(fetchWishlist());
     }
   }, [dispatch]);
   return (
@@ -113,6 +116,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wishlist"
+          element={
+            <ProtectedRoute>
+              <WishlistPage />
             </ProtectedRoute>
           }
         />
