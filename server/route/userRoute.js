@@ -21,8 +21,11 @@ import {
 import auth from "../middleware/auth.js";
 import upload from "../middleware/multer.js";
 import admin from "../middleware/Admin.js";
+import { inputSanitizer } from "../middleware/inputSanitizer.js";
 
 const userRouter = express.Router();
+
+userRouter.use(inputSanitizer);
 
 userRouter.post("/register", registerUser);
 
