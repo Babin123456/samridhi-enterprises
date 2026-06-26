@@ -58,6 +58,93 @@ export const fetchSimilarParts = createAsyncThunk(
   }
 );
 
+export const fetchFrequentlyBoughtTogether = createAsyncThunk(
+  "part/fetchFrequentlyBoughtTogether",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(
+        `${API_URL}/get/${id}/frequently-bought-together`
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+export const fetchRecommendedForYou = createAsyncThunk(
+  "part/fetchRecommendedForYou",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("token");
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      const response = await axiosInstance.get(
+        `${API_URL}/recommendations/for-you`,
+        config
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// Fire-and-forget: record that a set of recommended products was shown.
+// Failures are swallowed — analytics tracking must never disrupt the UI.
+export const trackRecommendationImpressions = createAsyncThunk(
+  "part/trackRecommendationImpressions",
+  async (productIds, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        `${API_URL}/recommendations/track-impressions`,
+        { productIds }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// Fire-and-forget: record that a recommended product was clicked.
+export const trackRecommendationClick = createAsyncThunk(
+  "part/trackRecommendationClick",
+  async (productId, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        `${API_URL}/recommendations/track-click`,
+        { productId }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+// Admin — fetch recommendation & engagement analytics (most viewed, most
+// recommended, CTR).
+export const adminGetRecommendationAnalytics = createAsyncThunk(
+  "part/adminGetRecommendationAnalytics",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("token");
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      const response = await axiosInstance.get(
+        `${API_URL}/admin/recommendation-analytics`,
+        config
+      );
+      return response.data.recommendationAnalytics;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
 export const updatePart = createAsyncThunk(
   "part/update",
   async ({ id, formData }, { rejectWithValue }) => {
@@ -149,6 +236,15 @@ const partSlice = createSlice({
     similarParts: [],
     similarLoading: false,
     similarError: null,
+    fbtParts: [],
+    fbtLoading: false,
+    fbtError: null,
+    recommendedParts: [],
+    recommendedLoading: false,
+    recommendedError: null,
+    recommendationAnalytics: null,
+    recommendationAnalyticsLoading: false,
+    recommendationAnalyticsError: null,
     loading: false,
     error: null,
     success: false,
@@ -213,6 +309,43 @@ const partSlice = createSlice({
       .addCase(fetchSimilarParts.rejected, (state, action) => {
         state.similarLoading = false;
         state.similarError = action.payload;
+      })
+      .addCase(fetchFrequentlyBoughtTogether.pending, (state) => {
+        state.fbtLoading = true;
+        state.fbtError = null;
+        state.fbtParts = [];
+      })
+      .addCase(fetchFrequentlyBoughtTogether.fulfilled, (state, action) => {
+        state.fbtLoading = false;
+        state.fbtParts = action.payload.parts;
+      })
+      .addCase(fetchFrequentlyBoughtTogether.rejected, (state, action) => {
+        state.fbtLoading = false;
+        state.fbtError = action.payload;
+      })
+      .addCase(fetchRecommendedForYou.pending, (state) => {
+        state.recommendedLoading = true;
+        state.recommendedError = null;
+      })
+      .addCase(fetchRecommendedForYou.fulfilled, (state, action) => {
+        state.recommendedLoading = false;
+        state.recommendedParts = action.payload.parts;
+      })
+      .addCase(fetchRecommendedForYou.rejected, (state, action) => {
+        state.recommendedLoading = false;
+        state.recommendedError = action.payload;
+      })
+      .addCase(adminGetRecommendationAnalytics.pending, (state) => {
+        state.recommendationAnalyticsLoading = true;
+        state.recommendationAnalyticsError = null;
+      })
+      .addCase(adminGetRecommendationAnalytics.fulfilled, (state, action) => {
+        state.recommendationAnalyticsLoading = false;
+        state.recommendationAnalytics = action.payload;
+      })
+      .addCase(adminGetRecommendationAnalytics.rejected, (state, action) => {
+        state.recommendationAnalyticsLoading = false;
+        state.recommendationAnalyticsError = action.payload;
       })
       .addCase(updatePart.pending, (state) => {
         state.loading = true;

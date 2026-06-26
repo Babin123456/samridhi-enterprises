@@ -5,6 +5,10 @@ import { getCustomerStockStatus, getStockBadge } from "@/utils/stockStatus";
 import {
   fetchPartById,
   fetchSimilarParts,
+  fetchFrequentlyBoughtTogether,
+  fetchRecommendedForYou,
+  trackRecommendationImpressions,
+  trackRecommendationClick,
   createOrUpdateReview,
   deleteReview,
   clearPartError,
@@ -21,9 +25,8 @@ const SingleProduct = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { part, loading, error, success, parts, similarParts } = useSelector(
-    (state) => state.parts
-  );
+  const { part, loading, error, parts, similarParts, fbtParts, recommendedParts } =
+    useSelector((state) => state.parts);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -35,8 +38,17 @@ const SingleProduct = () => {
   useEffect(() => {
     dispatch(fetchPartById(id));
     dispatch(fetchSimilarParts(id));
+    dispatch(fetchFrequentlyBoughtTogether(id));
     dispatch(fetchParts());
   }, [dispatch, id]);
+
+  // Personalized "Recommended For You" — only when the user is logged in
+  // (the endpoint is user-specific and reads their cart / wishlist / orders).
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchRecommendedForYou());
+    }
+  }, [dispatch, isAuthenticated]);
 
   useEffect(() => {
     if (error) {
@@ -59,15 +71,57 @@ const SingleProduct = () => {
       }
     }
   }, [part, user, isAuthenticated]);
-// Filter for Frequently Bought Together (Same category, excluding current product)
-  const frequentlyBought = parts && part
-    ? parts.filter((p) => p._id !== part._id && p.category === part.category).slice(0, 5)
-    : [];
+  // Frequently Bought Together — uses real purchase-history co-occurrence from
+  // the backend (fbtParts). Falls back to same-category products only if the
+  // backend returned nothing (e.g. while loading or no order history yet).
+  const frequentlyBought =
+    fbtParts && fbtParts.length > 0
+      ? fbtParts
+      : parts && part
+      ? parts
+          .filter((p) => p._id !== part._id && p.category === part.category)
+          .slice(0, 5)
+      : [];
 
-  // Filter for Recommended For You (Different categories, excluding current product)
-  const recommendedForYou = parts && part
-    ? parts.filter((p) => p._id !== part._id && p.category !== part.category).slice(0, 5)
-    : [];
+  // Recommended For You — uses the personalized backend endpoint
+  // (recommendedParts, based on the user's cart / wishlist / order history).
+  // For logged-out users, falls back to a simple different-category sample so
+  // the section still shows relevant products.
+  const recommendedForYou =
+    recommendedParts && recommendedParts.length > 0
+      ? recommendedParts
+      : parts && part
+      ? parts
+          .filter((p) => p._id !== part._id && p.category !== part.category)
+          .slice(0, 5)
+      : [];
+
+  // Track recommendation impressions once the recommendation sets for this
+  // product have loaded. We send the unique set of product IDs actually shown
+  // across the three recommendation rows. Fire-and-forget — wrapped so a
+  // tracking failure can never affect the page. Keyed on the product id so it
+  // runs once per product view (not on every render).
+  useEffect(() => {
+    if (!part?._id) return;
+    const shownIds = [
+      ...new Set(
+        [...similarParts, ...frequentlyBought, ...recommendedForYou]
+          .map((p) => p?._id)
+          .filter(Boolean)
+      ),
+    ];
+    if (shownIds.length > 0) {
+      dispatch(trackRecommendationImpressions(shownIds));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [part?._id, similarParts, fbtParts, recommendedParts]);
+
+  // Record a click-through when a user opens a product from a recommendation
+  // row. Fire-and-forget.
+  const handleRecommendationClick = (productId) => {
+    if (productId) dispatch(trackRecommendationClick(productId));
+  };
+
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       toast.error("Please log in to add items to cart");
@@ -277,6 +331,7 @@ const SingleProduct = () => {
             </svg>
           }
           products={similarParts}
+          onProductClick={handleRecommendationClick}
         />
 
         <RecommendationRow
@@ -288,6 +343,7 @@ const SingleProduct = () => {
             </svg>
           }
           products={frequentlyBought}
+          onProductClick={handleRecommendationClick}
         />
 
         <RecommendationRow
@@ -299,6 +355,7 @@ const SingleProduct = () => {
             </svg>
           }
           products={recommendedForYou}
+          onProductClick={handleRecommendationClick}
         />
 
               <div className="flex justify-center mb-8">
