@@ -1,4 +1,5 @@
 import Part from "../models/partModel.js";
+import Order from "../models/orderModel.js";
 import BikeModel from "../models/bikeModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import ErrorHandler from "../utils/errorHandler.js";
@@ -210,6 +211,94 @@ export const getSimilarParts = catchAsyncErrors(async (req, res, next) => {
 
   res.status(200).json({ success: true, count: parts.length, parts });
 });
+
+// Get "Frequently Bought Together" products for a given part.
+//
+// Looks at real purchase history: every non-cancelled order that contains the
+// target part, then counts how often each *other* part appears alongside it
+// across those orders. Products that co-occur most often are the strongest
+// "bought together" signal. Cancelled orders are excluded so abandoned/voided
+// purchases don't pollute the signal. The target part itself is always removed
+// from the results, deleted/missing parts are filtered out, and results are
+// capped (default 6).
+//
+// When there isn't enough purchase history to produce co-occurrence results
+// (a new catalogue, or a product no one has bought with anything yet), the
+// endpoint falls back to same-category products so the section still shows
+// something relevant instead of being empty.
+export const getFrequentlyBoughtTogether = catchAsyncErrors(
+  async (req, res, next) => {
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 6, 1),
+      20
+    );
+
+    const targetId = req.params.id;
+    const current = await Part.findById(targetId);
+    if (!current) return next(new ErrorHandler("Part not found", 404));
+
+    // All non-cancelled orders that include the target part.
+    const orders = await Order.find({
+      orderStatus: { $ne: "Cancelled" },
+      "items.part": targetId,
+    }).select("items.part");
+
+    // Tally co-occurrence counts for every other part.
+    const counts = new Map();
+    for (const order of orders) {
+      // Unique part ids in this order (a part bought twice in one order should
+      // still only count once toward "bought together").
+      const ids = new Set(
+        (order.items || [])
+          .map((i) => i.part && i.part.toString())
+          .filter(Boolean)
+      );
+      if (!ids.has(targetId.toString())) continue;
+      for (const id of ids) {
+        if (id === targetId.toString()) continue;
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
+
+    // Rank co-occurring part ids by frequency (highest first).
+    const rankedIds = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+
+    let parts = [];
+    if (rankedIds.length > 0) {
+      const found = await Part.find({ _id: { $in: rankedIds } }).select(
+        "product_id name price stock category images ratings numOfReviews bestseller"
+      );
+      // Preserve the co-occurrence ranking order (Mongo doesn't guarantee it).
+      const byId = new Map(found.map((p) => [p._id.toString(), p]));
+      parts = rankedIds
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .slice(0, limit);
+    }
+
+    // Fallback: not enough purchase history -> same-category products.
+    if (parts.length === 0) {
+      parts = await Part.find({
+        _id: { $ne: current._id },
+        category: current.category,
+      })
+        .select(
+          "product_id name price stock category images ratings numOfReviews bestseller"
+        )
+        .sort({ bestseller: -1, ratings: -1, numOfReviews: -1 })
+        .limit(limit);
+    }
+
+    res.status(200).json({
+      success: true,
+      count: parts.length,
+      parts,
+      basedOn: rankedIds.length > 0 ? "purchase-history" : "category-fallback",
+    });
+  }
+);
 
 // Delete review
 export const deleteReview = catchAsyncErrors(async (req, res, next) => {
