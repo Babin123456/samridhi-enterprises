@@ -11,7 +11,7 @@ import {
   deleteReview,
   getSimilarParts,
   getFrequentlyBoughtTogether,
-  getRecommendedForYou,
+  // getRecommendedForYou,
 } from "../controllers/partsControllers.js";
 import auth from "../middleware/auth.js";
 import admin from "../middleware/Admin.js";
@@ -58,7 +58,7 @@ partRouter.get(
   "/recommendations/for-you",
   recommendLimiter,
   auth,
-  getRecommendedForYou
+  // getRecommendedForYou
 );
 partRouter.put(
   "/update/:id",
