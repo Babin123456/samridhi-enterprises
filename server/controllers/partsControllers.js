@@ -1,4 +1,7 @@
 import Part from "../models/partModel.js";
+import Order from "../models/orderModel.js";
+import Cart from "../models/cartModel.js";
+import Wishlist from "../models/wishlistModel.js";
 import BikeModel from "../models/bikeModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import ErrorHandler from "../utils/errorHandler.js";
@@ -182,11 +185,12 @@ export const getSimilarParts = catchAsyncErrors(async (req, res, next) => {
     // Shared compatible vehicles (same fitment / brand). Capped so a part that
     // fits many vehicles can't dominate purely on overlap count.
     if (compatibilityIds.length > 0) {
-      const shared = (part.vehicleCompatibility || []).filter((v) =>
-        compatibilityIds.includes(v._id.toString())
-      ).length;
+      const shared = (part.vehicleCompatibility || [])
+        .filter((v) => v && v._id && compatibilityIds.includes(v._id.toString()))
+        .length;
       score += Math.min(shared, 3) * 2;
     }
+
 
     // Similar price range relative to the current product.
     if (price > 0) {
@@ -209,6 +213,200 @@ export const getSimilarParts = catchAsyncErrors(async (req, res, next) => {
   const parts = scored.slice(0, limit).map((s) => s.part);
 
   res.status(200).json({ success: true, count: parts.length, parts });
+});
+
+// Get "Frequently Bought Together" products for a given part.
+//
+// Looks at real purchase history: every non-cancelled order that contains the
+// target part, then counts how often each *other* part appears alongside it
+// across those orders. Products that co-occur most often are the strongest
+// "bought together" signal. Cancelled orders are excluded so abandoned/voided
+// purchases don't pollute the signal. The target part itself is always removed
+// from the results, deleted/missing parts are filtered out, and results are
+// capped (default 6).
+//
+// When there isn't enough purchase history to produce co-occurrence results
+// (a new catalogue, or a product no one has bought with anything yet), the
+// endpoint falls back to same-category products so the section still shows
+// something relevant instead of being empty.
+export const getFrequentlyBoughtTogether = catchAsyncErrors(
+  async (req, res, next) => {
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 6, 1),
+      20
+    );
+
+    const targetId = req.params.id;
+    const current = await Part.findById(targetId);
+    if (!current) return next(new ErrorHandler("Part not found", 404));
+
+    // All non-cancelled orders that include the target part.
+    const orders = await Order.find({
+      orderStatus: { $ne: "Cancelled" },
+      "items.part": targetId,
+    }).select("items.part");
+
+    // Tally co-occurrence counts for every other part.
+    const counts = new Map();
+    for (const order of orders) {
+      // Unique part ids in this order (a part bought twice in one order should
+      // still only count once toward "bought together").
+      const ids = new Set(
+        (order.items || [])
+          .map((i) => i.part && i.part.toString())
+          .filter(Boolean)
+      );
+      if (!ids.has(targetId.toString())) continue;
+      for (const id of ids) {
+        if (id === targetId.toString()) continue;
+        counts.set(id, (counts.get(id) || 0) + 1);
+      }
+    }
+
+    // Rank co-occurring part ids by frequency (highest first).
+    const rankedIds = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+
+    let parts = [];
+    if (rankedIds.length > 0) {
+      const found = await Part.find({ _id: { $in: rankedIds } }).select(
+        "product_id name price stock category images ratings numOfReviews bestseller"
+      );
+      // Preserve the co-occurrence ranking order (Mongo doesn't guarantee it).
+      const byId = new Map(found.map((p) => [p._id.toString(), p]));
+      parts = rankedIds
+        .map((id) => byId.get(id))
+        .filter(Boolean)
+        .slice(0, limit);
+    }
+
+    // Fallback: not enough purchase history -> same-category products.
+    if (parts.length === 0) {
+      parts = await Part.find({
+        _id: { $ne: current._id },
+        category: current.category,
+      })
+        .select(
+          "product_id name price stock category images ratings numOfReviews bestseller"
+        )
+        .sort({ bestseller: -1, ratings: -1, numOfReviews: -1 })
+        .limit(limit);
+    }
+
+    res.status(200).json({
+      success: true,
+      count: parts.length,
+      parts,
+      basedOn: rankedIds.length > 0 ? "purchase-history" : "category-fallback",
+    });
+  }
+);
+
+// Get personalized "Recommended For You" products for the logged-in user.
+//
+// Builds a lightweight taste profile from the user's own activity — the
+// categories of the parts in their cart, their wishlist, and their past
+// (non-cancelled) orders. Categories the user engages with more often are
+// weighted higher (a category that shows up across cart + wishlist + orders
+// outranks one seen once). We then recommend the best products (bestseller,
+// then rating, then review count) from those preferred categories, excluding
+// anything the user already has in cart / wishlist / past orders so we surface
+// genuinely new suggestions.
+//
+// Fallbacks keep the section useful for everyone:
+//   - A brand-new user with no cart / wishlist / orders gets top catalogue
+//     products (bestseller + highest rated).
+//   - If the preferred-category pool is too small, we top up with general
+//     best products so the row is never sparse.
+//
+// Requires auth (the route is mounted behind the auth middleware) so req.user
+// is always present.
+export const getRecommendedForYou = catchAsyncErrors(async (req, res, next) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 8, 1), 20);
+  const userId = req.user._id;
+
+  // Gather the user's signal parts from cart, wishlist, and past orders.
+  const [cart, wishlist, orders] = await Promise.all([
+    Cart.findOne({ user: userId }).select("items.part"),
+    Wishlist.findOne({ user: userId }).select("items.part"),
+    Order.find({ user: userId, orderStatus: { $ne: "Cancelled" } }).select(
+      "items.part"
+    ),
+  ]);
+
+  // Collect the ids of parts the user already has (to exclude from results)
+  // and use as the signal for category preference.
+  const ownedIds = new Set();
+
+  const addPart = (partRef) => {
+    if (!partRef) return;
+    ownedIds.add(partRef.toString());
+  };
+
+  (cart?.items || []).forEach((i) => addPart(i.part));
+  (wishlist?.items || []).forEach((i) => addPart(i.part));
+  (orders || []).forEach((o) => (o.items || []).forEach((i) => addPart(i.part)));
+
+  // Resolve the signal parts to learn their categories and weight them.
+  const categoryWeights = new Map();
+  if (ownedIds.size > 0) {
+    const signalParts = await Part.find({
+      _id: { $in: [...ownedIds] },
+    }).select("category");
+    for (const p of signalParts) {
+      if (p.category) {
+        categoryWeights.set(
+          p.category,
+          (categoryWeights.get(p.category) || 0) + 1
+        );
+      }
+    }
+  }
+
+  const preferredCategories = [...categoryWeights.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat]) => cat);
+
+  const ownedArray = [...ownedIds];
+  let parts = [];
+
+  // Primary: best products from the user's preferred categories, excluding
+  // what they already have.
+  if (preferredCategories.length > 0) {
+    parts = await Part.find({
+      _id: { $nin: ownedArray },
+      category: { $in: preferredCategories },
+    })
+      .select(
+        "product_id name price stock category images ratings numOfReviews bestseller"
+      )
+      .sort({ bestseller: -1, ratings: -1, numOfReviews: -1 })
+      .limit(limit);
+  }
+
+  // Top up (or full fallback for new users) with general best products.
+  if (parts.length < limit) {
+    const excludeIds = [
+      ...new Set([...ownedArray, ...parts.map((p) => p._id.toString())]),
+    ];
+    const filler = await Part.find({
+      _id: { $nin: excludeIds },
+    })
+      .select(
+        "product_id name price stock category images ratings numOfReviews bestseller"
+      )
+      .sort({ bestseller: -1, ratings: -1, numOfReviews: -1 })
+      .limit(limit - parts.length);
+    parts = parts.concat(filler);
+  }
+
+  res.status(200).json({
+    success: true,
+    count: parts.length,
+    parts,
+    personalized: preferredCategories.length > 0,
+  });
 });
 
 // Delete review
