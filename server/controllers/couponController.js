@@ -3,27 +3,7 @@ import Cart from "../models/cartModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
-// Shared validation for create/update. Mirrors the model constraints and adds
-// the business rule that a PERCENTAGE discount can never exceed 100.
-const validateCouponPayload = ({ discountType, discountValue }, partial) => {
-  if (discountType !== undefined && !["PERCENTAGE", "FIXED"].includes(discountType)) {
-    return "Discount type must be either PERCENTAGE or FIXED";
-  }
-  if (discountValue !== undefined) {
-    if (typeof discountValue !== "number" || Number.isNaN(discountValue) || discountValue < 0) {
-      return "Discount value must be a non-negative number";
-    }
-    if (discountType === "PERCENTAGE" && discountValue > 100) {
-      return "A percentage discount cannot exceed 100";
-    }
-  }
-  // On a partial update we may receive discountValue without discountType; in
-  // that case the caller resolves the effective type before calling this.
-  if (!partial && discountValue === undefined) {
-    return "Discount value is required";
-  }
-  return null;
-};
+
 
 // ── Admin: create a coupon ────────────────────────────────────────────────
 export const createCoupon = catchAsyncErrors(async (req, res, next) => {
@@ -39,15 +19,7 @@ export const createCoupon = catchAsyncErrors(async (req, res, next) => {
     isActive,
   } = req.body;
 
-  if (!code || !String(code).trim()) {
-    return next(new ErrorHandler("Coupon code is required", 400));
-  }
-  if (!discountType) {
-    return next(new ErrorHandler("Discount type is required", 400));
-  }
 
-  const payloadError = validateCouponPayload({ discountType, discountValue }, false);
-  if (payloadError) return next(new ErrorHandler(payloadError, 400));
 
   const normalizedCode = String(code).trim().toUpperCase();
   const existing = await Coupon.findOne({ code: normalizedCode });
@@ -93,14 +65,11 @@ export const updateCoupon = catchAsyncErrors(async (req, res, next) => {
     isActive,
   } = req.body;
 
-  // Resolve the effective discount type so the percentage cap is enforced even
-  // when only one of {type, value} is supplied in a partial update.
   const effectiveType = discountType ?? coupon.discountType;
-  const payloadError = validateCouponPayload(
-    { discountType: effectiveType, discountValue },
-    true
-  );
-  if (payloadError) return next(new ErrorHandler(payloadError, 400));
+  const effectiveValue = discountValue ?? coupon.discountValue;
+  if (effectiveType === "PERCENTAGE" && effectiveValue > 100) {
+    return next(new ErrorHandler("A percentage discount cannot exceed 100", 400));
+  }
 
   if (code !== undefined && String(code).trim()) {
     const normalizedCode = String(code).trim().toUpperCase();
@@ -140,9 +109,6 @@ export const deleteCoupon = catchAsyncErrors(async (req, res, next) => {
 // for display only — order creation re-validates independently.
 export const validateCoupon = catchAsyncErrors(async (req, res, next) => {
   const { code } = req.body;
-  if (!code || !String(code).trim()) {
-    return next(new ErrorHandler("Please enter a coupon code", 400));
-  }
 
   const coupon = await Coupon.findOne({
     code: String(code).trim().toUpperCase(),

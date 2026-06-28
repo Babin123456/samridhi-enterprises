@@ -20,18 +20,7 @@ const VALID_PRIORITIES = ["Low", "Medium", "High"];
 export const createTicket = catchAsyncErrors(async (req, res, next) => {
   const { subject, category, priority, message } = req.body;
 
-  if (!subject || !String(subject).trim()) {
-    return next(new ErrorHandler("Please enter a subject", 400));
-  }
-  if (!message || !String(message).trim()) {
-    return next(new ErrorHandler("Please describe your issue", 400));
-  }
-  if (category && !VALID_CATEGORIES.includes(category)) {
-    return next(new ErrorHandler("Invalid category", 400));
-  }
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
-    return next(new ErrorHandler("Invalid priority", 400));
-  }
+
 
   const ticket = await SupportTicket.create({
     user: req.user._id,
@@ -87,9 +76,7 @@ export const getMyTicket = catchAsyncErrors(async (req, res, next) => {
 // ── User: add a message to own ticket ─────────────────────────────────────
 export const addMessage = catchAsyncErrors(async (req, res, next) => {
   const { body } = req.body;
-  if (!body || !String(body).trim()) {
-    return next(new ErrorHandler("Message cannot be empty", 400));
-  }
+
 
   const ticket = await SupportTicket.findById(req.params.id);
   if (!ticket) return next(new ErrorHandler("Ticket not found", 404));
@@ -146,9 +133,7 @@ export const getTicketById = catchAsyncErrors(async (req, res, next) => {
 // ── Admin: update ticket status ───────────────────────────────────────────
 export const updateTicketStatus = catchAsyncErrors(async (req, res, next) => {
   const { status } = req.body;
-  if (!status || !VALID_STATUSES.includes(status)) {
-    return next(new ErrorHandler("Invalid status", 400));
-  }
+
 
   const ticket = await SupportTicket.findById(req.params.id);
   if (!ticket) return next(new ErrorHandler("Ticket not found", 404));
@@ -164,9 +149,7 @@ export const updateTicketStatus = catchAsyncErrors(async (req, res, next) => {
 // ── Admin: reply to a ticket ──────────────────────────────────────────────
 export const adminReply = catchAsyncErrors(async (req, res, next) => {
   const { body } = req.body;
-  if (!body || !String(body).trim()) {
-    return next(new ErrorHandler("Message cannot be empty", 400));
-  }
+
 
   const ticket = await SupportTicket.findById(req.params.id);
   if (!ticket) return next(new ErrorHandler("Ticket not found", 404));

@@ -29,7 +29,6 @@ export const getWishlist = catchAsyncErrors(async (req, res, next) => {
 // POST /api/wishlist  (auth)  body: { partId }
 export const addToWishlist = catchAsyncErrors(async (req, res, next) => {
   const { partId } = req.body;
-  if (!partId) return next(new ErrorHandler("partId is required", 400));
 
   const part = await Part.findById(partId);
   if (!part) return next(new ErrorHandler("Part not found", 404));

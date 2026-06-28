@@ -26,6 +26,17 @@ const errorMiddleware = (err, req, res, next) => {
     err = new ErrorHandler(message, 400);
   }
 
+  // Zod validation error
+  if (err.name === "ZodError") {
+    const message = err.errors
+      .map((e) => {
+        const path = e.path.filter((p) => p !== "body" && p !== "query" && p !== "params").join(".");
+        return path ? `${path}: ${e.message}` : e.message;
+      })
+      .join(", ");
+    err = new ErrorHandler(message, 400);
+  }
+
   // Wrong JWT error
   if (err.name === "JsonWebTokenError") {
     const message = `Json Web Token is invalid, Try again `;

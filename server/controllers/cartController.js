@@ -7,10 +7,6 @@ export const addToCart = catchAsyncErrors(async (req, res, next) => {
   const { partId, quantity } = req.body;
   const userId = req.user._id;
 
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    return next(new ErrorHandler("Quantity must be a whole number of at least 1", 400));
-  }
-
   const part = await Part.findById(partId);
   if (!part) return next(new ErrorHandler("Part not found", 404));
 
@@ -117,10 +113,6 @@ export const updateCartItem = catchAsyncErrors(async (req, res, next) => {
   // Quantity must be a whole number of at least 1. Without this guard a direct
   // API call could send 0, a negative (which makes price negative), or a
   // fractional quantity. The client clamps too, but the endpoint must validate.
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    return next(new ErrorHandler("Quantity must be a whole number of at least 1", 400));
-  }
-
   const cart = await Cart.findOne({ user: req.user._id });
   if (!cart) return next(new ErrorHandler("Cart not found", 404));
 

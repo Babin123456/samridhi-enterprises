@@ -7,22 +7,8 @@ import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 // Coerce an incoming year value (which arrives as a string via multipart form
 // data) into a number. Empty or invalid input becomes null, meaning "no year
 // constraint" rather than 0.
-const parseYear = (value) => {
-  if (value === undefined || value === null || value === "") return null;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-};
-
 export const addBikeModel = catchAsyncErrors(async (req, res, next) => {
-  const { name, brand, engineType } = req.body;
-  const yearStart = parseYear(req.body.yearStart);
-  const yearEnd = parseYear(req.body.yearEnd);
-
-  if (yearStart !== null && yearEnd !== null && yearStart > yearEnd) {
-    return next(
-      new ErrorHandler("Start year cannot be later than end year", 400)
-    );
-  }
+  const { name, brand, engineType, yearStart, yearEnd } = req.body;
 
   const existing = await BikeModel.findOne({ name, brand });
   if (existing) {
@@ -85,11 +71,11 @@ export const updateBikeModel = catchAsyncErrors(async (req, res, next) => {
   }
 
   if (req.body.yearStart !== undefined) {
-    bikeModel.yearStart = parseYear(req.body.yearStart);
+    bikeModel.yearStart = req.body.yearStart;
   }
 
   if (req.body.yearEnd !== undefined) {
-    bikeModel.yearEnd = parseYear(req.body.yearEnd);
+    bikeModel.yearEnd = req.body.yearEnd;
   }
 
   if (

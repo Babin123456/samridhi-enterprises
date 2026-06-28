@@ -11,13 +11,7 @@ import orderReceiptHtml from "../template/orderReceiptTemplate.js";
 import generateAdminNewOrderEmail from "../template/adminNewOrderTemplate.js";
 import notifyAdmins from "../utils/adminNotifier.js";
 
-const REQUIRED_ADDRESS_FIELDS = [
-  "fullName",
-  "phone",
-  "addressLine",
-  "city",
-  "pincode",
-];
+
 
 // POST /api/orders/new  (auth, multipart: optional "paymentScreenshot")
 // Creates an order from the logged-in user's cart. COD orders are confirmed
@@ -46,16 +40,6 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
   const paymentMethod = req.body.paymentMethod;
 
   const shippingAddress = { fullName, phone, addressLine, city, state, pincode };
-  const missing = REQUIRED_ADDRESS_FIELDS.filter(
-    (field) => !shippingAddress[field] || !String(shippingAddress[field]).trim()
-  );
-  if (missing.length > 0) {
-    return next(new ErrorHandler(`Missing required address fields: ${missing.join(", ")}`, 400));
-  }
-
-  if (!["COD", "Online"].includes(paymentMethod)) {
-    return next(new ErrorHandler("Payment method must be either COD or Online", 400));
-  }
 
   // Re-validate and deduct stock to prevent overselling
   for (const item of cart.items) {
@@ -408,11 +392,6 @@ export const adminGetAllOrders = catchAsyncErrors(async (req, res, next) => {
 // PUT /api/orders/admin/verify/:id  (auth, admin)  body: { action, rejectionReason }
 export const adminVerifyPayment = catchAsyncErrors(async (req, res, next) => {
   const { action, rejectionReason } = req.body;
-
-  if (!["approve", "reject"].includes(action)) {
-    return next(new ErrorHandler("Action must be either 'approve' or 'reject'", 400));
-  }
-
   const order = await Order.findById(req.params.id).populate(
     "user",
     "name email"
@@ -514,10 +493,6 @@ const VALID_TRANSITIONS = {
 export const adminUpdateOrderStatus = catchAsyncErrors(
   async (req, res, next) => {
     const { orderStatus } = req.body;
-
-    if (!FULFILLMENT_STATUSES.includes(orderStatus)) {
-      return next(new ErrorHandler(`orderStatus must be one of: ${FULFILLMENT_STATUSES.join(", ")}`, 400));
-    }
 
     const order = await Order.findById(req.params.id).populate(
       "user",

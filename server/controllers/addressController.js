@@ -3,10 +3,7 @@ import User from "../models/userModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
-const REQUIRED_FIELDS = ["fullName", "phone", "addressLine", "city", "pincode"];
 
-const missingFields = (body) =>
-  REQUIRED_FIELDS.filter((f) => !body[f] || !String(body[f]).trim());
 
 // ── Get all addresses for the logged-in user (default first) ──────────────
 export const getMyAddresses = catchAsyncErrors(async (req, res) => {
@@ -22,12 +19,7 @@ export const addAddress = catchAsyncErrors(async (req, res, next) => {
   const { label, fullName, phone, addressLine, city, state, pincode, isDefault } =
     req.body;
 
-  const missing = missingFields(req.body);
-  if (missing.length > 0) {
-    return next(
-      new ErrorHandler(`Missing required fields: ${missing.join(", ")}`, 400)
-    );
-  }
+
 
   // The first address a user adds becomes their default automatically.
   const existingCount = await Address.countDocuments({ user: req.user._id });
@@ -74,12 +66,7 @@ export const updateAddress = catchAsyncErrors(async (req, res, next) => {
   const { label, fullName, phone, addressLine, city, state, pincode, isDefault } =
     req.body;
 
-  // Validate only the fields that are being changed.
-  for (const f of REQUIRED_FIELDS) {
-    if (req.body[f] !== undefined && !String(req.body[f]).trim()) {
-      return next(new ErrorHandler(`${f} cannot be empty`, 400));
-    }
-  }
+
 
   if (label !== undefined) address.label = label;
   if (fullName !== undefined) address.fullName = fullName;
