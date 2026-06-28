@@ -7,6 +7,8 @@ import {
   fetchSimilarParts,
   fetchFrequentlyBoughtTogether,
   fetchRecommendedForYou,
+  trackRecommendationImpressions,
+  trackRecommendationClick,
   createOrUpdateReview,
   deleteReview,
   clearPartError,
@@ -97,6 +99,33 @@ const SingleProduct = () => {
           .filter((p) => p._id !== part._id && p.category !== part.category)
           .slice(0, 5)
       : [];
+
+  // Track recommendation impressions once the recommendation sets for this
+  // product have loaded. We send the unique set of product IDs actually shown
+  // across the three recommendation rows. Fire-and-forget — wrapped so a
+  // tracking failure can never affect the page. Keyed on the product id so it
+  // runs once per product view (not on every render).
+  useEffect(() => {
+    if (!part?._id) return;
+    const shownIds = [
+      ...new Set(
+        [...similarParts, ...frequentlyBought, ...recommendedForYou]
+          .map((p) => p?._id)
+          .filter(Boolean)
+      ),
+    ];
+    if (shownIds.length > 0) {
+      dispatch(trackRecommendationImpressions(shownIds));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [part?._id, similarParts, fbtParts, recommendedParts]);
+
+  // Record a click-through when a user opens a product from a recommendation
+  // row. Fire-and-forget.
+  const handleRecommendationClick = (productId) => {
+    if (productId) dispatch(trackRecommendationClick(productId));
+  };
+
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       toast.error("Please log in to add items to cart");
@@ -324,6 +353,7 @@ const SingleProduct = () => {
             </svg>
           }
           products={similarParts}
+          onProductClick={handleRecommendationClick}
         />
 
         <RecommendationRow
@@ -335,6 +365,7 @@ const SingleProduct = () => {
             </svg>
           }
           products={frequentlyBought}
+          onProductClick={handleRecommendationClick}
         />
 
         <RecommendationRow
@@ -346,6 +377,7 @@ const SingleProduct = () => {
             </svg>
           }
           products={recommendedForYou}
+          onProductClick={handleRecommendationClick}
         />
 
               <div className="flex justify-center mb-8">
