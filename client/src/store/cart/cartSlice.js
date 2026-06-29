@@ -1,5 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "@/api";
+import {
+  getGuestCart,
+  removeGuestCartItem,
+  resetGuestCart,
+  syncGuestCart,
+  updateGuestCartItem,
+  upsertGuestCartItem,
+} from "@/utils/guestCart";
 
 const API_URL = "/api/cart";
 
@@ -8,6 +16,10 @@ export const addToCart = createAsyncThunk(
   async ({ partId, quantity }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        return await upsertGuestCartItem({ partId, quantity });
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -31,14 +43,23 @@ export const fetchCart = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        return { success: true, warnings: [], cart: getGuestCart() };
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       };
+      const syncResult = await syncGuestCart(token);
       const response = await axiosInstance.get(`${API_URL}`, config);
       console.log("fetchCart response:", response.data);
-      return response.data;
+      return {
+        ...response.data,
+        warnings: [...(response.data.warnings || []), ...(syncResult.warnings || [])],
+        failedItems: syncResult.failedItems || [],
+      };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -50,6 +71,10 @@ export const updateCartItem = createAsyncThunk(
   async ({ partId, quantity }, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        return updateGuestCartItem({ partId, quantity });
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -73,6 +98,10 @@ export const removeFromCart = createAsyncThunk(
   async (partId, { rejectWithValue }) => {
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        return removeGuestCartItem(partId);
+      }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -96,8 +125,9 @@ export const clearCart = createAsyncThunk(
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        return rejectWithValue("No authentication token found");
+        return resetGuestCart();
       }
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`,

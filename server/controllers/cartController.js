@@ -2,18 +2,9 @@ import Cart from "../models/cartModel.js";
 import Part from "../models/partModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import ErrorHandler from "../utils/errorHandler.js";
+import mongoose from "mongoose";
 
-export const addToCart = catchAsyncErrors(async (req, res, next) => {
-  const { partId, quantity } = req.body;
-  const userId = req.user._id;
-
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    return next(new ErrorHandler("Quantity must be a whole number of at least 1", 400));
-  }
-
-  const part = await Part.findById(partId);
-  if (!part) return next(new ErrorHandler("Part not found", 404));
-
+const getOrCreateCart = async (userId) => {
   let cart = await Cart.findOne({ user: userId });
   if (!cart) {
     cart = await Cart.create({
@@ -22,26 +13,25 @@ export const addToCart = catchAsyncErrors(async (req, res, next) => {
       total: 0,
     });
   }
+  return cart;
+};
+
+const addItemToCart = async (cart, partId, quantity) => {
+  const part = await Part.findById(partId);
+  if (!part) {
+    throw new ErrorHandler("Part not found", 404);
+  }
+  if (part.stock < quantity) {
+    throw new ErrorHandler("Insufficient stock", 400);
+  }
 
   const itemIndex = cart.items.findIndex(
     (item) => item.part.toString() === partId
   );
-
   if (itemIndex >= 0) {
-    const currentQuantity = cart.items[itemIndex].quantity;
-    const newQuantity = currentQuantity + quantity;
-
-    if (part.stock < newQuantity) {
-      return next(new ErrorHandler("Insufficient stock", 400));
-    }
-
-    cart.items[itemIndex].quantity = newQuantity;
-    cart.items[itemIndex].price = part.price * newQuantity;
+    cart.items[itemIndex].quantity += quantity;
+    cart.items[itemIndex].price = part.price * cart.items[itemIndex].quantity;
   } else {
-    if (part.stock < quantity) {
-      return next(new ErrorHandler("Insufficient stock", 400));
-    }
-
     cart.items.push({
       part: partId,
       quantity,
@@ -50,10 +40,65 @@ export const addToCart = catchAsyncErrors(async (req, res, next) => {
     });
   }
 
+  return cart;
+};
+
+export const addToCart = catchAsyncErrors(async (req, res, next) => {
+  const { partId, quantity } = req.body;
+  const userId = req.user._id;
+  const cart = await getOrCreateCart(userId);
+
+  await addItemToCart(cart, partId, quantity);
   cart.total = cart.items.reduce((sum, item) => sum + item.price, 0);
   await cart.save();
 
   res.status(200).json({ success: true, cart });
+});
+
+export const syncCart = catchAsyncErrors(async (req, res) => {
+  const userId = req.user._id;
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  const cart = await getOrCreateCart(userId);
+  const failedItems = [];
+
+  for (const item of items) {
+    const partId = item.partId;
+    const quantity = Number(item.quantity);
+
+    if (!mongoose.Types.ObjectId.isValid(partId) || !Number.isInteger(quantity) || quantity < 1) {
+      failedItems.push({
+        partId,
+        quantity: item.quantity,
+        reason: "Invalid cart item",
+      });
+      continue;
+    }
+
+    try {
+      await addItemToCart(cart, partId, quantity);
+    } catch (error) {
+      failedItems.push({
+        partId,
+        quantity,
+        reason: error.message || "Unable to sync item",
+      });
+    }
+  }
+
+  cart.total = cart.items.reduce((sum, item) => sum + item.price, 0);
+  await cart.save();
+
+  const syncedCart = await Cart.findOne({ user: userId }).populate(
+    "items.part",
+    "name price images stock"
+  );
+
+  res.status(200).json({
+    success: true,
+    warnings: failedItems.map((item) => `Could not sync item ${item.partId}: ${item.reason}`),
+    failedItems,
+    cart: syncedCart,
+  });
 });
 
 export const getCart = catchAsyncErrors(async (req, res, next) => {
