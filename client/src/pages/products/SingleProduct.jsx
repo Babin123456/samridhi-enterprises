@@ -5,26 +5,101 @@ import { getCustomerStockStatus, getStockBadge } from "@/utils/stockStatus";
 import {
   fetchPartById,
   fetchSimilarParts,
+  fetchFrequentlyBoughtTogether,
+  fetchRecommendedForYou,
+  trackRecommendationImpressions,
+  trackRecommendationClick,
   createOrUpdateReview,
   deleteReview,
   clearPartError,
   clearPartSuccess,
 } from "../../store/product/partsSlice";
 import { addToCart } from "../../store/cart/cartSlice";
+import { addToWishlist, removeFromWishlist } from "../../store/wishlist/wishlistSlice";
+import { Heart } from "lucide-react";
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import SEO from "../../components/SEO";
 import RecommendationRow from "../../components/RecommendationRow";
 import { fetchParts } from "../../store/product/partsSlice";
+
+
+const ProductCarouselSection = ({ title, description, iconPath, products, delay = 0.4 }) => {
+  if (!products || products.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay }}
+      className="mt-12 bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden"
+    >
+      <div className="p-8 lg:p-12">
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-3">
+          <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
+          </svg>
+          {title}
+        </h2>
+        <p className="text-gray-600 dark:text-gray-300 mb-8">{description}</p>
+
+        <div className="flex gap-5 overflow-x-auto pb-4 -mx-2 px-2">
+          {products.map((item) => (
+            <Link key={item._id} to={`/products/${item._id}`} className="flex-shrink-0 w-56">
+              <motion.div
+                whileHover={{ y: -4 }}
+                transition={{ type: "spring", stiffness: 300 }}
+                className="h-full bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 overflow-hidden"
+              >
+                <div className="relative">
+                  <img
+                    src={item.images?.[0]?.url || "/images/placeholder.jpg"}
+                    alt={item.name || "Product"}
+                    loading="lazy"
+                    className="w-full h-40 object-cover"
+                  />
+                  {item.bestseller && (
+                    <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      Bestseller
+                    </span>
+                  )}
+                </div>
+                <div className="p-4 space-y-2">
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 capitalize min-h-[3rem]">
+                    {item.name || "Unknown Product"}
+                  </h3>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                      ₹{item.price?.toLocaleString() || "0"}
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStockBadge(item.stock).badgeCls}`}>
+                      {getStockBadge(item.stock).label}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                    {item.category}
+                  </div>
+                </div>
+              </motion.div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+
 const SingleProduct = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { part, loading, error, success, parts, similarParts } = useSelector(
-    (state) => state.parts
-  );
+  const { part, loading, error, parts, similarParts, fbtParts, recommendedParts } =
+    useSelector((state) => state.parts);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { wishlist } = useSelector((state) => state.wishlist);
+  const wishlistItems = wishlist?.items || [];
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [rating, setRating] = useState(0);
@@ -35,8 +110,17 @@ const SingleProduct = () => {
   useEffect(() => {
     dispatch(fetchPartById(id));
     dispatch(fetchSimilarParts(id));
+    dispatch(fetchFrequentlyBoughtTogether(id));
     dispatch(fetchParts());
   }, [dispatch, id]);
+
+  // Personalized "Recommended For You" — only when the user is logged in
+  // (the endpoint is user-specific and reads their cart / wishlist / orders).
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchRecommendedForYou());
+    }
+  }, [dispatch, isAuthenticated]);
 
   useEffect(() => {
     if (error) {
@@ -59,15 +143,57 @@ const SingleProduct = () => {
       }
     }
   }, [part, user, isAuthenticated]);
-// Filter for Frequently Bought Together (Same category, excluding current product)
-  const frequentlyBought = parts && part
-    ? parts.filter((p) => p._id !== part._id && p.category === part.category).slice(0, 5)
-    : [];
+  // Frequently Bought Together — uses real purchase-history co-occurrence from
+  // the backend (fbtParts). Falls back to same-category products only if the
+  // backend returned nothing (e.g. while loading or no order history yet).
+  const frequentlyBought =
+    fbtParts && fbtParts.length > 0
+      ? fbtParts
+      : parts && part
+      ? parts
+          .filter((p) => p._id !== part._id && p.category === part.category)
+          .slice(0, 5)
+      : [];
 
-  // Filter for Recommended For You (Different categories, excluding current product)
-  const recommendedForYou = parts && part
-    ? parts.filter((p) => p._id !== part._id && p.category !== part.category).slice(0, 5)
-    : [];
+  // Recommended For You — uses the personalized backend endpoint
+  // (recommendedParts, based on the user's cart / wishlist / order history).
+  // For logged-out users, falls back to a simple different-category sample so
+  // the section still shows relevant products.
+  const recommendedForYou =
+    recommendedParts && recommendedParts.length > 0
+      ? recommendedParts
+      : parts && part
+      ? parts
+          .filter((p) => p._id !== part._id && p.category !== part.category)
+          .slice(0, 5)
+      : [];
+
+  // Track recommendation impressions once the recommendation sets for this
+  // product have loaded. We send the unique set of product IDs actually shown
+  // across the three recommendation rows. Fire-and-forget — wrapped so a
+  // tracking failure can never affect the page. Keyed on the product id so it
+  // runs once per product view (not on every render).
+  useEffect(() => {
+    if (!part?._id) return;
+    const shownIds = [
+      ...new Set(
+        [...similarParts, ...frequentlyBought, ...recommendedForYou]
+          .map((p) => p?._id)
+          .filter(Boolean)
+      ),
+    ];
+    if (shownIds.length > 0) {
+      dispatch(trackRecommendationImpressions(shownIds));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [part?._id, similarParts, fbtParts, recommendedParts]);
+
+  // Record a click-through when a user opens a product from a recommendation
+  // row. Fire-and-forget.
+  const handleRecommendationClick = (productId) => {
+    if (productId) dispatch(trackRecommendationClick(productId));
+  };
+
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       toast.error("Please log in to add items to cart");
@@ -83,6 +209,24 @@ const SingleProduct = () => {
       })
     );
     toast.success(`${part.name} added to cart!`);
+  };
+
+  // Add or remove the current product from the user's (server-backed) wishlist.
+  // Mirrors the pattern used on the products listing page; handles both the
+  // populated (item.part._id) and raw (item.part) wishlist item shapes.
+  const isInWishlist = (id) =>
+    wishlistItems.some((i) => (i.part?._id || i.part) === id);
+  const toggleWishlist = () => {
+    if (!isAuthenticated) {
+      toast.info("Please log in to use your wishlist");
+      return;
+    }
+    if (!part?._id) return;
+    if (isInWishlist(part._id)) {
+      dispatch(removeFromWishlist(part._id));
+    } else {
+      dispatch(addToWishlist(part._id));
+    }
   };
 
   const handleSubmitReview = (e) => {
@@ -190,7 +334,7 @@ const SingleProduct = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center p-8 bg-white rounded-2xl shadow-xl"
+          className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl"
         >
           <div className="w-20  h-20 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
             <svg
@@ -207,7 +351,7 @@ const SingleProduct = () => {
               />
             </svg>
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
             Something went wrong
           </h3>
           <p className="text-red-500">{error}</p>
@@ -249,14 +393,15 @@ const SingleProduct = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="bg-white rounded-3xl shadow-2xl overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden"
         >
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.7 }}
-              className="relative p-8 lg:p-12 bg-gradient-to-br from-gray-50 to-white"
+              className="relative p-8 lg:p-12 bg-gradient-to-br from-gray-50 to-white flex flex-col items-center"
             >
              {part.bestseller && (
                 <motion.div
@@ -267,102 +412,72 @@ const SingleProduct = () => {
                 >
                   Bestseller
                 </ motion.div>
-              )}{/* ==================== AI RECOMMENDATIONS SECTIONS ==================== */}
-        <RecommendationRow
-          title="Similar Products"
-          description="Related parts in the same category and compatible with similar vehicles."
-          icon={
-            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          }
-          products={similarParts}
-        />
-
-        <RecommendationRow
-          title="Frequently Bought Together"
-          description="Customers who purchased this piece also bundled these highly compatible components together."
-          icon={
-            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-          }
-          products={frequentlyBought}
-        />
-
-        <RecommendationRow
-          title="Recommended For You"
-          description="Personalized updates matched dynamically using your viewing behavior metrics."
-          icon={
-            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          }
-          products={recommendedForYou}
-        />
-
-              <div className="flex justify-center mb-8">
-                <motion.div
-                  className="relative cursor-pointer group"
-                  onClick={() => setIsZoomed(!isZoomed)}
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                >
-                  <img
-                    src={
-                      part.images?.[selectedImage]?.url ||
-                      "/images/placeholder.jpg"
-                    }
-                    alt={part.name || "Product Image"}
-                    className={`w-96 h-96 object-fit rounded-2xl shadow-lg transition-all duration-500 ${
-                      isZoomed ? "w-[30rem] h-[30rem]" : "w-96 h-96"
-                    }`}
-                  />
-                  <div className="absolute inset-0 bg-blue-400 opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl"></div>
-                  <div className="absolute top-4 right-4 bg-white bg-opacity-80 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg
-                      className="w-5 h-5 text-blue-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-                      />
-                    </svg>
-                  </div>
-                </motion.div>
-              </div>
-
-              {part.images?.length > 1 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="flex justify-center gap-3 overflow-x-auto pb-2"
-                >
-                  {part.images.map((img, index) => (
-                    <motion.img
-                      key={img.public_id || `img-${index}`}
-                      src={img.url || "/images/placeholder.jpg"}
-                      alt={`${part.name || "Product"}-${index}`}
-                      className={`w-20 h-20 object-cover cursor-pointer rounded-xl border-3 transition-all duration-300 ${
-                        selectedImage === index
-                          ? "border-blue-500 shadow-lg shadow-blue-200"
-                          : "border-gray-200 hover:border-blue-300"
-                      }`}
-                      onClick={() => setSelectedImage(index)}
-                      whileHover={{ scale: 1.1, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                    />
-                  ))}
-                </motion.div>
               )}
-            </motion.div>
+          
+            <div className="flex justify-center mb-8">
+  <motion.div
+    className="relative cursor-pointer group"
+    onClick={() => setIsZoomed(!isZoomed)}
+    whileHover={{ scale: 1.05 }}
+    transition={{ type: "spring", stiffness: 300 }}
+  >
+      <img
+      src={
+        part.images?.[selectedImage]?.url ||
+        "/images/placeholder.jpg"
+      }
+      alt={part.name || "Product Image"}
+      className={`w-96 h-96 object-cover rounded-2xl shadow-lg transition-all duration-500 ${
+        isZoomed ? "w-[30rem] h-[30rem]" : "w-96 h-96"
+      }`}
+    /> 
 
+    <div className="absolute inset-0 bg-blue-400 opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl"></div>
+
+    <div className="absolute top-4 right-4 bg-white dark:bg-gray-800 bg-opacity-80 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+      <svg
+        className="w-5 h-5 text-blue-500"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+        />
+      </svg>
+    </div>
+  </motion.div>
+</div>
+
+{part.images?.length > 1 && (
+ 
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.3 }}
+    className="flex justify-center gap-3 overflow-x-auto pb-2"
+  >
+    {part.images.map((img, index) => (
+      <motion.img
+        key={img.public_id || `img-${index}`}
+        src={img.url || "/images/placeholder.jpg"}
+        alt={`${part.name || "Product"}-${index}`}
+        className={`w-20 h-20 object-cover cursor-pointer rounded-xl border-2 transition-all duration-300 ${
+          selectedImage === index
+            ? "border-blue-500 shadow-lg shadow-blue-200"
+            : "border-gray-200 dark:border-gray-700 hover:border-blue-300"
+        }`}
+        onClick={() => setSelectedImage(index)}
+        whileHover={{ scale: 1.1, y: -2 }}
+        whileTap={{ scale: 0.95 }}
+      />
+    ))}
+  </motion.div>
+)}
+</motion.div>
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -375,7 +490,7 @@ const SingleProduct = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="text-3xl lg:text-4xl font-bold text-gray-900 leading-tight capitalize"
+                    className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 leading-tight capitalize"
                   >
                     {part.name || "Unknown Product"}
                   </motion.h1>
@@ -402,7 +517,7 @@ const SingleProduct = () => {
                         </svg>
                       ))}
                     </div>
-                    <span className="text-blue-600 font-medium hover:underline cursor-pointer">
+                    <span className="text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer">
                       {part.ratings?.toFixed(1) || "0.0"} (
                       {part.numOfReviews || 0} reviews)
                     </span>
@@ -416,7 +531,7 @@ const SingleProduct = () => {
                   className="space-y-2"
                 >
                   <div className="flex items-baseline gap-4">
-                    <span className="text-4xl font-bold text-blue-600">
+                    <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">
                       ₹{part.price?.toLocaleString() || "0"}
                     </span>
                   </div>
@@ -441,19 +556,19 @@ const SingleProduct = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 }}
-                  className="bg-gray-50 rounded-2xl p-6 space-y-4"
+                  className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 space-y-4"
                 >
-                  <h3 className="font-semibold text-gray-900">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                     Product Details
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">
+                  <p className="text-gray-700 dark:text-gray-200 leading-relaxed">
                     {part.description || "No description available"}
                   </p>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
                     <span className="font-medium">Product Id:</span>{" "}
                     {part.product_id || "N/A"}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
                     <span className="font-medium">Category:</span>{" "}
                     {part.category || "N/A"}
                   </div>
@@ -466,14 +581,14 @@ const SingleProduct = () => {
                     transition={{ delay: 0.7 }}
                     className="space-y-3"
                   >
-                    <h3 className="font-semibold text-gray-900">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                       Compatible Vehicles
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       {part.vehicleCompatibility.map((vehicle) => (
                         <span
                           key={vehicle._id}
-                          className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm font-medium border border-blue-200 uppercase"
+                          className="px-3 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-sm font-medium border border-blue-200 dark:border-blue-800 uppercase"
                         >
                           {vehicle.name}
                         </span>
@@ -487,9 +602,9 @@ const SingleProduct = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.8 }}
-                    className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl"
+                    className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl"
                   >
-                    <label className="font-medium text-blue-900">
+                    <label className="font-medium text-blue-900 dark:text-blue-200">
                       Quantity:
                     </label>
                     <div className="flex items-center gap-2">
@@ -500,7 +615,7 @@ const SingleProduct = () => {
                         onClick={decrementQuantity}
                         disabled={quantity === 1}
                         aria-label="Decrease quantity"
-                        className="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 disabled:opacity-50 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-200 disabled:opacity-50 transition-colors"
                       >
                         <svg
                           className="w-5 h-5"
@@ -520,7 +635,7 @@ const SingleProduct = () => {
                         type="number"
                         value={quantity}
                         onChange={handleQuantityChange}
-                        className="w-20 text-center border-2 border-blue-200 rounded-xl px-4 py-2 font-medium focus:outline-none focus:border-blue-400 transition-colors"
+                        className="w-20 text-center border-2 border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2 font-medium focus:outline-none focus:border-blue-400 transition-colors"
                         min="1"
                         max={Math.min(part.stock, 10)}
                       />
@@ -531,7 +646,7 @@ const SingleProduct = () => {
                         onClick={incrementQuantity}
                         disabled={quantity >= Math.min(part.stock, 10)}
                         aria-label="Increase quantity"
-                        className="w-10 h-10 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 disabled:opacity-50 transition-colors"
+                        className="w-10 h-10 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-200 disabled:opacity-50 transition-colors"
                       >
                         <svg
                           className="w-5 h-5"
@@ -569,106 +684,75 @@ const SingleProduct = () => {
                   className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 ${
                     part.stock > 0
                       ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-gray-300 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                   }`}
                 >
                   {part.stock > 0 ? "Add to Cart" : "Out of Stock"}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={toggleWishlist}
+                  aria-label={
+                    isInWishlist(part._id)
+                      ? "Remove from wishlist"
+                      : "Add to wishlist"
+                  }
+                  className={`w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 border-2 transition-all duration-300 ${
+                    isInWishlist(part._id)
+                      ? "border-red-500 text-red-500 bg-red-50 hover:bg-red-100"
+                      : "border-gray-300 text-gray-600 bg-white hover:border-red-300 hover:text-red-500"
+                  }`}
+                >
+                  <Heart
+                    className={`w-5 h-5 transition ${
+                      isInWishlist(part._id) ? "fill-red-500 text-red-500" : ""
+                    }`}
+                  />
+                  {isInWishlist(part._id)
+                    ? "Remove from Wishlist"
+                    : "Add to Wishlist"}
                 </motion.button>
               </motion.div>
             </motion.div>
           </div>
         </motion.div>
 
-        {similarParts && similarParts.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-12 bg-white rounded-3xl shadow-xl overflow-hidden"
-          >
-            <div className="p-8 lg:p-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                <svg
-                  className="w-8 h-8 text-blue-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                  />
-                </svg>
-                Similar Products
-              </h2>
-              <p className="text-gray-600 mb-8">
-                Related parts in the same category and compatible with similar
-                vehicles.
-              </p>
-
-              <div className="flex gap-5 overflow-x-auto pb-4 -mx-2 px-2">
-                {similarParts.map((item) => (
-                  <Link
-                    key={item._id}
-                    to={`/products/${item._id}`}
-                    className="flex-shrink-0 w-56"
-                  >
-                    <motion.div
-                      whileHover={{ y: -4 }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                      className="h-full bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg transition-shadow duration-200 overflow-hidden"
-                    >
-                      <div className="relative">
-                        <img
-                          src={item.images?.[0]?.url || "/images/placeholder.jpg"}
-                          alt={item.name || "Product"}
-                          loading="lazy"
-                          className="w-full h-40 object-cover"
-                        />
-                        {item.bestseller && (
-                          <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                            Bestseller
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-4 space-y-2">
-                        <h3 className="text-base font-semibold text-gray-900 line-clamp-2 capitalize min-h-[3rem]">
-                          {item.name || "Unknown Product"}
-                        </h3>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold text-blue-600">
-                            ₹{item.price?.toLocaleString() || "0"}
-                          </span>
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              getStockBadge(item.stock).badgeCls
-                            }`}
-                          >
-                            {getStockBadge(item.stock).label}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-500 truncate">
-                          {item.category}
-                        </div>
-                      </div>
-                    </motion.div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </motion.div>
+        
+    {similarParts && similarParts.length > 0 && (
+    <ProductCarouselSection
+      title="Similar Products"
+      description="Related parts in the same category and compatible with similar vehicles."
+      iconPath="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+      products={similarParts}
+      delay={0.4}
+        
+    />
         )}
 
+    <ProductCarouselSection
+      title="Frequently Bought Together"
+      description="Customers who purchased this piece also bundled these highly compatible components together."
+      iconPath="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+      products={frequentlyBought}
+      delay={0.6}
+    />
+
+    <ProductCarouselSection
+      title="Recommended For You"
+      description="Personalized updates matched dynamically using your viewing behavior metrics."
+      iconPath="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+      products={recommendedForYou}
+      delay={0.8}
+    />
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1 }}
-          className="mt-12 bg-white rounded-3xl shadow-xl overflow-hidden"
+          className="mt-12 bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden"
         >
           <div className="p-8 lg:p-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 flex items-center gap-3">
               <svg
                 className="w-8 h-8 text-blue-500"
                 fill="none"
@@ -692,7 +776,7 @@ const SingleProduct = () => {
                 transition={{ delay: 1.2 }}
                 className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-8 mb-8"
               >
-                <h3 className="text-xl font-bold text-blue-900 mb-6">
+                <h3 className="text-xl font-bold text-blue-900 dark:text-blue-200 mb-6">
                   {part.reviews.find(
                     (r) => r.user?.toString() === user?._id?.toString()
                   )
@@ -701,7 +785,7 @@ const SingleProduct = () => {
                 </h3>
                 <form onSubmit={handleSubmitReview} className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <span className="font-medium text-blue-900">
+                    <span className="font-medium text-blue-900 dark:text-blue-200">
                       Your Rating:
                     </span>
                     <div className="flex gap-1">
@@ -731,7 +815,7 @@ const SingleProduct = () => {
                       value={comment}
                       onChange={(e) => setComment(e.target.value)}
                       placeholder="Share your experience with this product..."
-                      className="w-full border-2 border-blue-200 rounded-2xl p-4 h-32 resize-none focus:outline-none focus:border-blue-400 transition-colors"
+                      className="w-full border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-4 h-32 resize-none focus:outline-none focus:border-blue-400 transition-colors"
                       maxLength={500}
                     />
                     <span className="absolute bottom-4 right-4 text-blue-500 text-sm font-medium">
@@ -777,7 +861,7 @@ const SingleProduct = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ delay: index * 0.1 }}
-                      className="bg-gray-50 rounded-2xl p-6 hover:shadow-lg transition-shadow"
+                      className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-6 hover:shadow-lg transition-shadow"
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-4">
@@ -785,7 +869,7 @@ const SingleProduct = () => {
                             {(review.name || "A").charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-900">
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
                               {review.name || "Anonymous"}
                             </h4>
                             <div className="flex items-center gap-2">
@@ -805,7 +889,7 @@ const SingleProduct = () => {
                                   </svg>
                                 ))}
                               </div>
-                              <span className="text-gray-500 text-sm">
+                              <span className="text-gray-500 dark:text-gray-400 text-sm">
                                 {new Date(review.createdAt).toLocaleDateString(
                                   "en-US",
                                   {
@@ -819,7 +903,7 @@ const SingleProduct = () => {
                           </div>
                         </div>
                       </div>
-                      <p className="text-gray-700 leading-relaxed">
+                      <p className="text-gray-700 dark:text-gray-200 leading-relaxed">
                         {review.comment}
                       </p>
                     </motion.div>
@@ -832,7 +916,7 @@ const SingleProduct = () => {
                 animate={{ opacity: 1 }}
                 className="text-center py-16"
               >
-                <div className="w-24 h-24 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                   <svg
                     className="w-12 h-12 text-blue-400"
                     fill="none"
@@ -847,10 +931,10 @@ const SingleProduct = () => {
                     />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                   No reviews yet
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-300">
                   Be the first to share your experience with this product!
                 </p>
               </motion.div>
@@ -861,5 +945,6 @@ const SingleProduct = () => {
     </div>
   );
 };
+
 
 export default SingleProduct;

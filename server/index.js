@@ -6,8 +6,10 @@ import cloudinary from "cloudinary";
 import connectDB from "./config/connectDB.js";
 import errorMiddleware from "./middleware/error.js";
 import requestLogger from "./middleware/requestLogger.js";
+import validateEnv from "./utils/validateEnv.js";
 
 dotenv.config();
+validateEnv();
 
 process.on("uncaughtException", (err) => {
   console.error(`Error: ${err.message}`);
@@ -24,9 +26,20 @@ cloudinary.config({
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const getTrustProxyConfig = (value) => {
+  if (value === "true") return true;
+  if (!Number.isNaN(Number(value))) return Number(value);
+  return value;
+};
+
+// Set TRUST_PROXY when deployed behind a trusted reverse proxy/load balancer so
+// req.ip reflects the client IP used by the rate limiter.
+if (process.env.TRUST_PROXY) {
+  app.set("trust proxy", getTrustProxyConfig(process.env.TRUST_PROXY));
+}
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  process.env.FRONTEND_WWW_URL,
   "http://localhost:5173",
 ];
 
@@ -43,9 +56,14 @@ app.use(
   })
 );
 
+import rateLimiter from "./middleware/rateLimiter.js";
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(requestLogger);
+
+// Apply rate limiter to all API endpoints
+app.use("/api", rateLimiter({ max: 200, windowMs: 15 * 60 * 1000 }));
 
 app.get("/", (req, res) => {
   res.send("Server is running: " + PORT);
