@@ -17,6 +17,7 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^0.518.0",
     "motion": "^12.18.1",
+    "playwright": "^1.61.1",
     "prop-types": "^15.8.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

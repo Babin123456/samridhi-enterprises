@@ -9,7 +9,7 @@ import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
 
-export const registerUser = catchAsyncErrors(async (req, res) => {
+export const registerUser = catchAsyncErrors(async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
@@ -65,7 +65,7 @@ export const registerUser = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const verifyEmailOtp = catchAsyncErrors(async (req, res) => {
+export const verifyEmailOtp = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
@@ -116,7 +116,7 @@ export const verifyEmailOtp = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const resendOtp = catchAsyncErrors(async (req, res) => {
+export const resendOtp = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -154,7 +154,7 @@ export const resendOtp = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const loginUser = catchAsyncErrors(async (req, res) => {
+export const loginUser = catchAsyncErrors(async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -184,7 +184,7 @@ export const loginUser = catchAsyncErrors(async (req, res) => {
   sendToken(user, 200, res);
 });
 
-export const logoutUser = catchAsyncErrors(async (req, res) => {
+export const logoutUser = catchAsyncErrors(async (req, res, next) => {
   try {
     res.cookie("token", null, {
       expires: new Date(Date.now()),
@@ -201,7 +201,7 @@ export const logoutUser = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const uploadAvatar = catchAsyncErrors(async (req, res) => {
+export const uploadAvatar = catchAsyncErrors(async (req, res, next) => {
   try {
     const userId = req.user._id;
     const image = req.file;
@@ -273,7 +273,7 @@ export const updatePassword = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-export const forgotPassword = catchAsyncErrors(async (req, res) => {
+export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -315,7 +315,7 @@ export const forgotPassword = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const verifyOtp = catchAsyncErrors(async (req, res) => {
+export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
@@ -354,7 +354,7 @@ export const verifyOtp = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const resetPassword = catchAsyncErrors(async (req, res) => {
+export const resetPassword = catchAsyncErrors(async (req, res, next) => {
   try {
     const { email, newPassword, confirmPassword } = req.body;
 
@@ -401,7 +401,7 @@ export const resetPassword = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const getUserDetails = catchAsyncErrors(async (req, res) => {
+export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
   try {
     console.log("Checking User model:", UserModel);
 
@@ -422,7 +422,7 @@ export const getUserDetails = catchAsyncErrors(async (req, res) => {
   }
 });
 
-export const updateUserDetails = catchAsyncErrors(async (req, res) => {
+export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
   try {
     const userId = req.user._id;
     const { name, email, mobile, password } = req.body;
@@ -487,7 +487,7 @@ export const updateUserDetails = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const getAllUsers = catchAsyncErrors(async (req, res) => {
+export const getAllUsers = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN" && req.user.role !== "MANAGER") {
       return next(new ErrorHandler("Access denied. Admins only.", 403));
@@ -525,7 +525,7 @@ export const getAllUsers = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const getSingleUser = catchAsyncErrors(async (req, res) => {
+export const getSingleUser = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN" && req.user.role !== "MANAGER") {
       return next(new ErrorHandler("Permission denied. Admins only.", 403));
@@ -551,7 +551,7 @@ export const getSingleUser = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const updateUserRole = catchAsyncErrors(async (req, res) => {
+export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN") {
       return next(new ErrorHandler("Permission denied. Managers only.", 403));
@@ -584,7 +584,7 @@ export const updateUserRole = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const deleteUser = catchAsyncErrors(async (req, res) => {
+export const deleteUser = catchAsyncErrors(async (req, res, next) => {
   try {
     const userId = req.params.id;
 
@@ -617,7 +617,7 @@ export const deleteUser = catchAsyncErrors(async (req, res) => {
 });
 
 // Admin
-export const updateUserStatus = catchAsyncErrors(async (req, res) => {
+export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
   try {
     const { status } = req.body;
     const { id } = req.params;

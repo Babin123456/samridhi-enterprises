@@ -8,7 +8,7 @@ const sendEmail = async ({ sendTo, subject, html }) => {
       "https://api.brevo.com/v3/smtp/email",
       {
         sender: {
-          email: "sakethsumanbathini@gmail.com",
+          email: "",
           name: "Samridhi Enterprises",
         },
         to: [{ email: sendTo }],

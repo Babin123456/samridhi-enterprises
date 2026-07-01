@@ -83,7 +83,7 @@ const MyProfile = () => {
             whileHover={{ scale: 1.05, rotate: 5 }}
           >
             <AnimatePresence>
-              {loading ? (
+              {loading && !user ? (
                 <Loader />
               ) : (
                 <motion.img
@@ -101,13 +101,13 @@ const MyProfile = () => {
             className="text-2xl font-serif font-bold text-blue-500 capitalize"
             variants={itemVariants}
           >
-            {loading ? "Loading..." : user?.name || "Guest"}
+            {loading && !user ? "Loading..." : user?.name || "Guest"}
           </motion.h2>
           <motion.p
             className="text-blue-400 text-sm font-medium"
             variants={itemVariants}
           >
-            {loading ? "Loading..." : user?.role || "N/A"}
+            {loading && !user ? "Loading..." : user?.role || "N/A"}
           </motion.p>
 
           <motion.div
@@ -132,7 +132,7 @@ const MyProfile = () => {
                     {field.charAt(0).toUpperCase() + field.slice(1)}
                   </span>
                   <p className="font-medium text-blue-500 text-base">
-                    {loading ? "Loading..." : user?.[field] || "Not provided"}
+                    {loading && !user ? "Loading..." : user?.[field] || "Not provided"}
                   </p>
                 </motion.div>
               ))}
@@ -155,7 +155,7 @@ const MyProfile = () => {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <AnimatePresence>
-                    {loading ? (
+                    {loading && !user ? (
                       <motion.p
                         className="flex items-center justify-center h-full text-blue-400 text-sm"
                         initial={{ opacity: 0 }}
@@ -181,13 +181,13 @@ const MyProfile = () => {
                 className="mt-6 text-3xl font-serif font-bold text-blue-500 capitalize"
                 variants={itemVariants}
               >
-                {loading ? "Loading..." : user?.name || "Guest"}
+                {loading && !user ? "Loading..." : user?.name || "Guest"}
               </motion.h2>
               <motion.p
                 className="text-blue-400 text-sm font-medium mt-2"
                 variants={itemVariants}
               >
-                {loading ? "Loading..." : user?.role || "N/A"}
+                {loading && !user ? "Loading..." : user?.role || "N/A"}
               </motion.p>
             </div>
 
@@ -260,7 +260,7 @@ const MyProfile = () => {
                     {field.charAt(0).toUpperCase() + field.slice(1)}
                   </span>
                   <p className="font-medium text-blue-500 text-base">
-                    {loading ? "Loading..." : user?.[field] || "Not provided"}
+                    {loading && !user ? "Loading..." : user?.[field] || "Not provided"}
                   </p>
                 </motion.div>
               ))}
