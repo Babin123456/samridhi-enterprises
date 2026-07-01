@@ -8,6 +8,8 @@ import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import { uploadImage } from "../utils/cloudinary.js";
 import sendEmail from "../config/sendEmail.js";
 import orderReceiptHtml from "../template/orderReceiptTemplate.js";
+import generateAdminNewOrderEmail from "../template/adminNewOrderTemplate.js";
+import notifyAdmins from "../utils/adminNotifier.js";
 
 const REQUIRED_ADDRESS_FIELDS = [
   "fullName",
@@ -79,120 +81,154 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
   }
 
   // All checks passed, deduct stock atomically
-  for (const item of cart.items) {
-    await Part.findByIdAndUpdate(item.part._id, { $inc: { stock: -item.quantity } });
-  }
+  const updatedParts = [];
+  let couponClaimed = null;
 
-  // Snapshot the cart items onto the order (unit price + image), so the order
-  // record stays correct even if a part is later edited or removed.
-  const items = cart.items.map((item) => {
-    const unitPrice =
-      item.part && typeof item.part.price === "number"
-        ? item.part.price
-        : item.quantity > 0
-        ? item.price / item.quantity
-        : item.price;
-    const image =
-      item.part && item.part.images && item.part.images.length > 0
-        ? item.part.images[0].url
-        : "";
-    return {
-      part: item.part ? item.part._id : undefined,
-      name: item.name || (item.part ? item.part.name : "Item"),
-      price: unitPrice,
-      quantity: item.quantity,
-      image,
-    };
-  });
+  try {
+    for (const item of cart.items) {
+      const part = await Part.findOneAndUpdate(
+        { _id: item.part._id, stock: { $gte: item.quantity } },
+        { $inc: { stock: -item.quantity } },
+        { new: true }
+      );
+      if (!part) {
+        throw new ErrorHandler(`Insufficient stock for ${item.name || (item.part ? item.part.name : "Item")}`, 400);
+      }
+      updatedParts.push({ id: item.part._id, quantity: item.quantity });
+    }
 
-  // Derive the total from the snapshot itself so the receipt's line totals
-  // always sum to the grand total, regardless of any stale cart.total value.
-  const itemsTotal = items.reduce(
-    (sum, it) => sum + it.price * it.quantity,
-    0
-  );
-
-  // Re-validate the coupon (if any) server-side — never trust client discount amount.
-  let appliedCouponCode = "";
-  let discount = 0;
-  if (couponCode && String(couponCode).trim()) {
-    const coupon = await Coupon.findOne({
-      code: String(couponCode).trim().toUpperCase(),
+    // Snapshot the cart items onto the order (unit price + image), so the order
+    // record stays correct even if a part is later edited or removed.
+    const items = cart.items.map((item) => {
+      const unitPrice =
+        item.part && typeof item.part.price === "number"
+          ? item.part.price
+          : item.quantity > 0
+          ? item.price / item.quantity
+          : item.price;
+      const image =
+        item.part && item.part.images && item.part.images.length > 0
+          ? item.part.images[0].url
+          : "";
+      return {
+        part: item.part ? item.part._id : undefined,
+        name: item.name || (item.part ? item.part.name : "Item"),
+        price: unitPrice,
+        quantity: item.quantity,
+        image,
+      };
     });
-    if (!coupon) {
-      return res.status(400).json({ success: false, message: "Invalid coupon code" });
-    }
-    const redeemable = coupon.isRedeemable();
-    if (!redeemable.ok) {
-      return res.status(400).json({ success: false, message: redeemable.reason });
-    }
-    const computed = coupon.computeDiscount(itemsTotal);
-    if (computed <= 0) {
-      return res.status(400).json({ success: false, message: "This coupon does not apply to your order" });
-    }
-    const claim = await Coupon.findOneAndUpdate(
-      { _id: coupon._id, $or: [{ usageLimit: 0 }, { $expr: { $lt: ["$usedCount", "$usageLimit"] } }] },
-      { $inc: { usedCount: 1 } },
-      { new: true }
+
+    // Derive the total from the snapshot itself so the receipt's line totals
+    // always sum to the grand total, regardless of any stale cart.total value.
+    const itemsTotal = items.reduce(
+      (sum, it) => sum + it.price * it.quantity,
+      0
     );
-    if (!claim) {
-      return res.status(400).json({ success: false, message: "This coupon has reached its usage limit" });
+
+    // Re-validate the coupon (if any) server-side — never trust client discount amount.
+    let appliedCouponCode = "";
+    let discount = 0;
+    if (couponCode && String(couponCode).trim()) {
+      const coupon = await Coupon.findOne({
+        code: String(couponCode).trim().toUpperCase(),
+      });
+      if (!coupon) {
+        throw new ErrorHandler("Invalid coupon code", 400);
+      }
+      const redeemable = coupon.isRedeemable();
+      if (!redeemable.ok) {
+        throw new ErrorHandler(redeemable.reason, 400);
+      }
+      const computed = coupon.computeDiscount(itemsTotal);
+      if (computed <= 0) {
+        throw new ErrorHandler("This coupon does not apply to your order", 400);
+      }
+      const claim = await Coupon.findOneAndUpdate(
+        {
+          _id: coupon._id,
+          isActive: true,
+          discountType: coupon.discountType,
+          discountValue: coupon.discountValue,
+          minOrderAmount: coupon.minOrderAmount,
+          maxDiscount: coupon.maxDiscount,
+          $and: [
+            {
+              $or: [
+                { expiresAt: null },
+                { expiresAt: { $gt: new Date() } }
+              ]
+            },
+            {
+              $or: [
+                { usageLimit: 0 },
+                { $expr: { $lt: ["$usedCount", "$usageLimit"] } }
+              ]
+            }
+          ]
+        },
+        { $inc: { usedCount: 1 } },
+        { new: true }
+      );
+      if (!claim) {
+        throw new ErrorHandler("This coupon is no longer valid or has reached its usage limit", 400);
+      }
+      couponClaimed = claim;
+      appliedCouponCode = coupon.code;
+      discount = computed;
     }
-    appliedCouponCode = coupon.code;
-    discount = computed;
-  }
 
-  const grandTotal = Math.max(0, itemsTotal - discount);
+    const grandTotal = Math.max(0, itemsTotal - discount);
 
-  let paymentScreenshot = { public_id: "", url: "" };
-  let paymentStatus;
-  let orderStatus;
+    let paymentScreenshot = { public_id: "", url: "" };
+    let paymentStatus;
+    let orderStatus;
 
-  if (paymentMethod === "Online") {
-    if (!req.file) {
-      return next(new ErrorHandler("A payment screenshot is required for online payments", 400));
+    if (paymentMethod === "Online") {
+      if (!req.file) {
+        throw new ErrorHandler("A payment screenshot is required for online payments", 400);
+      }
+      const uploaded = await uploadImage(req.file);
+      if (!uploaded || !uploaded.secure_url) {
+        throw new ErrorHandler("Payment screenshot upload failed. Please try again.", 500);
+      }
+      paymentScreenshot = {
+        public_id: uploaded.public_id,
+        url: uploaded.secure_url,
+      };
+      paymentStatus = "Pending Verification";
+      orderStatus = "Pending Verification";
+    } else {
+      // COD
+      paymentStatus = "Pending";
+      orderStatus = "Confirmed";
     }
-    const uploaded = await uploadImage(req.file);
-    if (!uploaded || !uploaded.secure_url) {
-      return next(new ErrorHandler("Payment screenshot upload failed. Please try again.", 500));
-    }
-    paymentScreenshot = {
-      public_id: uploaded.public_id,
-      url: uploaded.secure_url,
-    };
-    paymentStatus = "Pending Verification";
-    orderStatus = "Pending Verification";
-  } else {
-    // COD
-    paymentStatus = "Pending";
-    orderStatus = "Confirmed";
-  }
 
-  const order = await Order.create({
-    user: req.user._id,
-    items,
-    shippingAddress,
-    itemsTotal,
-    couponCode: appliedCouponCode,
-    discount,
-    grandTotal,
-    paymentMethod,
-    paymentStatus,
-    orderStatus,
-    paymentScreenshot,
-    upiReference: upiReference || "",
-  });
+    const order = await Order.create({
+      user: req.user._id,
+      items,
+      shippingAddress,
+      itemsTotal,
+      couponCode: appliedCouponCode,
+      discount,
+      grandTotal,
+      paymentMethod,
+      paymentStatus,
+      orderStatus,
+      paymentScreenshot,
+      upiReference: upiReference || "",
+    });
 
-  // Link the order to the user's history WITHOUT calling user.save(), which
-  // would trigger the model's pre-save hook and re-hash the password.
-  await User.findByIdAndUpdate(req.user._id, {
-    $push: { orderHistory: order._id },
-  });
+    // Link the order to the user's history WITHOUT calling user.save(), which
+    // would trigger the model's pre-save hook and re-hash the password.
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { orderHistory: order._id },
+    });
 
-  // Clear the cart now that it has been converted into an order.
-  cart.items = [];
-  cart.total = 0;
-  await cart.save();
+    // Clear the cart now that it has been converted into an order.
+    cart.items = [];
+    cart.total = 0;
+    await cart.save();
 
   // Fire-and-forget email; a failure here must never break order creation.
   try {
@@ -224,14 +260,37 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
     console.error("Order email failed:", mailErr.message);
   }
 
-  res.status(201).json({
-    success: true,
-    message:
-      paymentMethod === "COD"
-        ? "Order placed successfully"
-        : "Order placed. Payment is pending verification.",
-    order,
+  // Notify store admins of the new order (best-effort, gated by the admin
+  // settings toggle) via the shared notifyAdmins helper. It runs isolated and
+  // never throws, so it cannot trigger the stock-rollback below.
+  await notifyAdmins({
+    preferenceKey: "notifyAdminsOnNewOrder",
+    subject:
+      paymentMethod === "Online"
+        ? `New Order (Payment Verification Needed) - ${order._id}`
+        : `New Order Received - ${order._id}`,
+    html: generateAdminNewOrderEmail(order, req.user),
   });
+
+    res.status(201).json({
+      success: true,
+      message:
+        paymentMethod === "COD"
+          ? "Order placed successfully"
+          : "Order placed. Payment is pending verification.",
+      order,
+    });
+  } catch (error) {
+    // Rollback any stocks we already successfully deducted
+    for (const updated of updatedParts) {
+      await Part.findByIdAndUpdate(updated.id, { $inc: { stock: updated.quantity } });
+    }
+    // Rollback coupon usedCount
+    if (couponClaimed) {
+      await Coupon.findByIdAndUpdate(couponClaimed._id, { $inc: { usedCount: -1 } });
+    }
+    return next(error);
+  }
 });
 
 // GET /api/orders/my-orders  (auth)
@@ -252,6 +311,86 @@ export const getOrderById = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Not authorized to view this order", 403));
   }
   res.status(200).json({ success: true, order });
+});
+
+// A customer may cancel their own order only while it is still in an early,
+// reversible state. Once it is Processing / Shipped / Delivered it has entered
+// fulfilment and can no longer be self-cancelled.
+const CUSTOMER_CANCELLABLE_STATUSES = ["Pending Verification", "Confirmed"];
+
+// PUT /api/orders/:id/cancel  (auth, owner only)
+// Customer-initiated cancellation. Verifies ownership, enforces status-based
+// eligibility, restores stock using the same guarded pattern as the admin
+// reject/cancel paths, and emails the customer a cancellation confirmation.
+export const cancelMyOrder = catchAsyncErrors(async (req, res, next) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+
+  // Ownership: a customer can only cancel an order that belongs to them.
+  if (order.user.toString() !== req.user._id.toString()) {
+    return next(new ErrorHandler("Not authorized to cancel this order", 403));
+  }
+
+  if (order.orderStatus === "Cancelled") {
+    return next(new ErrorHandler("This order is already cancelled", 400));
+  }
+
+  if (!CUSTOMER_CANCELLABLE_STATUSES.includes(order.orderStatus)) {
+    return next(
+      new ErrorHandler(
+        `This order is ${order.orderStatus} and can no longer be cancelled. Orders can only be cancelled while they are ${CUSTOMER_CANCELLABLE_STATUSES.join(
+          " or "
+        )}. Please contact support for assistance.`,
+        400
+      )
+    );
+  }
+
+  order.orderStatus = "Cancelled";
+  order.rejectionReason = "Cancelled by customer";
+
+  // Restore stock once, guarded by stockRestored — identical to the restore
+  // used by adminVerifyPayment (reject) and adminUpdateOrderStatus (Cancelled).
+  if (!order.stockRestored) {
+    for (const item of order.items) {
+      if (item.part) {
+        await Part.findByIdAndUpdate(item.part, { $inc: { stock: item.quantity } });
+      }
+    }
+    order.stockRestored = true;
+  }
+
+  await order.save();
+
+  // Best-effort confirmation email — a mail failure must not fail the request.
+  try {
+    const itemsHtml = order.items
+      .map((item) => `<li><strong>${item.name}</strong> &times; ${item.quantity}</li>`)
+      .join("");
+    await sendEmail({
+      sendTo: req.user.email,
+      subject: `Order Cancelled - Order ${order._id}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+        <h2 style="color:#e91e63;">Order Cancellation Confirmation</h2>
+        <p style="color:#555;">Dear ${req.user.name || "Customer"},</p>
+        <p style="color:#555;">Your order <strong>${order._id}</strong> has been cancelled as requested.</p>
+        <ul style="color:#555;">${itemsHtml}</ul>
+        <p style="color:#555;">Any reserved stock has been released. If your payment was already completed, our team will process the refund as per policy.</p>
+        <p style="color:#555;">If you did not request this cancellation, please contact our support team immediately.</p>
+        <p style="color:#555;">Best regards,<br/>Samridhi Enterprises</p>
+      </div>`,
+    });
+  } catch (mailErr) {
+    console.error("Cancellation email failed:", mailErr.message);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Order cancelled successfully",
+    order,
+  });
 });
 
 // GET /api/orders/admin/all?status=...  (auth, admin)
@@ -282,6 +421,10 @@ export const adminVerifyPayment = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Order not found", 404));
   }
 
+  if (order.orderStatus === "Cancelled" || order.paymentStatus === "Failed") {
+    return next(new ErrorHandler("Order is already cancelled or payment rejected", 400));
+  }
+
   if (action === "approve") {
     order.paymentStatus = "Success";
     order.orderStatus = "Confirmed";
@@ -310,14 +453,17 @@ export const adminVerifyPayment = catchAsyncErrors(async (req, res, next) => {
   order.paymentStatus = "Failed";
   order.orderStatus = "Cancelled";
   order.rejectionReason = rejectionReason || "Payment could not be verified";
-  await order.save();
 
-  // Restore stock
-  for (const item of order.items) {
-    if (item.part) {
-      await Part.findByIdAndUpdate(item.part, { $inc: { stock: item.quantity } });
+  // Restore stock if not already restored
+  if (!order.stockRestored) {
+    for (const item of order.items) {
+      if (item.part) {
+        await Part.findByIdAndUpdate(item.part, { $inc: { stock: item.quantity } });
+      }
     }
+    order.stockRestored = true;
   }
+  await order.save();
 
   try {
     await sendEmail({
@@ -356,6 +502,15 @@ const FULFILLMENT_STATUSES = [
   "Cancelled",
 ];
 
+const VALID_TRANSITIONS = {
+  "Pending Verification": ["Confirmed", "Cancelled"],
+  "Confirmed": ["Processing", "Cancelled"],
+  "Processing": ["Shipped", "Cancelled"],
+  "Shipped": ["Delivered", "Cancelled"],
+  "Delivered": [],
+  "Cancelled": [],
+};
+
 export const adminUpdateOrderStatus = catchAsyncErrors(
   async (req, res, next) => {
     const { orderStatus } = req.body;
@@ -372,6 +527,12 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
       return next(new ErrorHandler("Order not found", 404));
     }
 
+    const currentStatus = order.orderStatus;
+    const allowed = VALID_TRANSITIONS[currentStatus] || [];
+    if (!allowed.includes(orderStatus)) {
+      return next(new ErrorHandler(`Invalid status transition from ${currentStatus} to ${orderStatus}. Allowed transitions: ${allowed.join(", ") || "none"}`, 400));
+    }
+
     // Guard: an order whose payment has not succeeded should not be marked as
     // physically fulfilled. It can still be Cancelled.
     if (
@@ -383,16 +544,17 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
 
     const previousStatus = order.orderStatus;
     order.orderStatus = orderStatus;
-    await order.save();
 
-    if (previousStatus !== "Cancelled" && orderStatus === "Cancelled") {
+    if (orderStatus === "Cancelled" && !order.stockRestored) {
       // Restore stock
       for (const item of order.items) {
         if (item.part) {
           await Part.findByIdAndUpdate(item.part, { $inc: { stock: item.quantity } });
         }
       }
+      order.stockRestored = true;
     }
+    await order.save();
 
     res.status(200).json({
       success: true,

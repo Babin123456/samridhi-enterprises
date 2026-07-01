@@ -21,11 +21,11 @@ const VerifyEmail = () => {
   const redirect = location.search ? location.search.split("=")[1] : (isAuthenticated ? "/" : "/login");
 
   useEffect(() => {
-    if (!user?.email) {
+    if (!isAuthenticated) {
       toast.error("Please log in to verify your email");
       navigate("/login");
     }
-  }, [user, navigate]);
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (verifyEmail) {

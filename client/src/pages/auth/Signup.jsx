@@ -27,7 +27,7 @@ const SignUp = () => {
       await dispatch(signupUser({ name, email, password })).unwrap();
       toast.success("Welcome to Samridhi Enterprises!");
       navigate("/login");
-    } catch (err) {
+    } catch (err) { // eslint-disable-line no-unused-vars
       // Error is handled by the useEffect listening to state.auth.error
     }
   };

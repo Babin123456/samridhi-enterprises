@@ -9,9 +9,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Please enter your name"],
     },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: [true, "Please Enter Your Password"] },
-    avatar: { type: String, default: "" },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    password: {
+      type: String,
+      required: [true, "Please Enter Your Password"],
+    },
+    avatar: {
+      type: String,
+      default: "",
+    },
     mobile: {
       type: String,
       default: null,
@@ -28,7 +38,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    failedAttempts: { type: Number, default: 0 },
+    failedAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
     lastLogin: {
       type: Date,
       default: null,
@@ -44,18 +61,6 @@ const userSchema = new mongoose.Schema(
         ref: "address",
       },
     ],
-    shoppingCart: [
-      {
-        type: mongoose.Schema.ObjectId,
-        ref: "cartProduct",
-      },
-    ],
-    shoppingWishlist: [
-      {
-        type: mongoose.Schema.ObjectId,
-        ref: "wishListProduct",
-      },
-    ],
     orderHistory: [
       {
         type: mongoose.Schema.ObjectId,
@@ -67,6 +72,14 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     forgot_password_expiry: {
+      type: Date,
+      default: null,
+    },
+    forgot_password_failedAttempts: {
+      type: Number,
+      default: 0,
+    },
+    forgot_password_lockUntil: {
       type: Date,
       default: null,
     },
@@ -89,22 +102,28 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    next();
-  }
+// Hash password before saving
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
 
   this.password = await bcrypt.hash(this.password, 10);
 });
 
 userSchema.methods.getJWTToken = function () {
-  return jwt.sign({ id: this._id, role: this.role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE,
-  });
+  return jwt.sign(
+    {
+      id: this._id,
+      role: this.role,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRE,
+    }
+  );
 };
 
 userSchema.methods.comparePassword = async function (password) {
-  return await bcrypt.compare(password, this.password);
+  return bcrypt.compare(password, this.password);
 };
 
 userSchema.methods.getResetPasswordToken = function () {

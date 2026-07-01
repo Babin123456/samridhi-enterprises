@@ -4,10 +4,13 @@ import bcryptjs from "bcryptjs";
 import sendEmail from "../config/sendEmail.js";
 import verifyEmailTemplate from "../template/verifyEmailTemplate.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
-import { deleteImage, uploadImage } from "../utils/cloudinary.js";
+import { deleteImage, uploadImage, getPublicIdFromUrl } from "../utils/cloudinary.js";
 import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
+
+const OTP_MODE = process.env.OTP_MODE || "production";
+const shouldLogOtp = OTP_MODE === "dev";
 
 export const registerUser = catchAsyncErrors(async (req, res, next) => {
   try {
@@ -26,6 +29,10 @@ export const registerUser = catchAsyncErrors(async (req, res, next) => {
     const otp = generatedOtp();
     const otpExpiry = new Date();
     otpExpiry.setMinutes(otpExpiry.getMinutes() + 15);
+
+    if (shouldLogOtp) {
+      console.log(`\n=== VERIFICATION OTP FOR ${email} IS: ${otp} ===\n`);
+    }
 
     const emailResponse = await sendEmail({
       sendTo: email,
@@ -93,7 +100,9 @@ export const verifyEmailOtp = catchAsyncErrors(async (req, res, next) => {
       user.login_expiry = newExpiry;
       await user.save();
 
-      return next(new ErrorHandler("OTP expired. A new OTP has been sent to your email.", 410));
+      return next(
+        new ErrorHandler("OTP expired. A new OTP has been sent to your email.", 410)
+      );
     }
 
     if (otp !== user.login_otp) {
@@ -112,7 +121,9 @@ export const verifyEmailOtp = catchAsyncErrors(async (req, res, next) => {
       success: true,
     });
   } catch (error) {
-    return next(new ErrorHandler(error.message || "An error occurred while verifying OTP.", 500));
+    return next(
+      new ErrorHandler(error.message || "An error occurred while verifying OTP.", 500)
+    );
   }
 });
 
@@ -129,6 +140,10 @@ export const resendOtp = catchAsyncErrors(async (req, res, next) => {
     const newOtp = generatedOtp();
     const newExpiry = new Date();
     newExpiry.setMinutes(newExpiry.getMinutes() + 15);
+
+    if (shouldLogOtp) {
+      console.log(`\n=== RESEND OTP FOR ${email} IS: ${newOtp} ===\n`);
+    }
 
     const emailResponse = await sendEmail({
       sendTo: email,
@@ -162,22 +177,64 @@ export const loginUser = catchAsyncErrors(async (req, res, next) => {
   }
 
   const user = await UserModel.findOne({ email }).select("+password");
-  console.log("User Found:", user);
 
   if (!user) {
     return next(new ErrorHandler("User is not registered", 400));
   }
 
   if (user.status !== "Active") {
-    return next(new ErrorHandler("Your account is not active. Please contact the admin.", 400));
+    return next(
+      new ErrorHandler("Your account is not active. Please contact the admin.", 400)
+    );
+  }
+
+  // Account lockout: configurable threshold + duration (defaults: 5 attempts, 15 min).
+  const maxAttempts = Number(process.env.LOGIN_MAX_ATTEMPTS) || 5;
+  const lockMinutes = Number(process.env.LOGIN_LOCK_MINUTES) || 15;
+
+  // If a lock is currently active, reject before checking the password so a
+  // locked account cannot keep guessing.
+  if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
+    const minutesLeft = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+    return next(
+      new ErrorHandler(
+        `Account temporarily locked due to too many failed login attempts. Try again in ${minutesLeft} minute(s).`,
+        429
+      )
+    );
+  }
+
+  // A previously set lock has now expired — clear it before proceeding.
+  if (user.lockUntil && user.lockUntil.getTime() <= Date.now()) {
+    user.lockUntil = null;
+    user.failedAttempts = 0;
   }
 
   const checkPassword = await user.comparePassword(password);
 
   if (!checkPassword) {
+    user.failedAttempts = (user.failedAttempts || 0) + 1;
+
+    // Threshold reached — lock the account and reset the counter.
+    if (user.failedAttempts >= maxAttempts) {
+      user.lockUntil = new Date(Date.now() + lockMinutes * 60 * 1000);
+      user.failedAttempts = 0;
+      await user.save();
+      return next(
+        new ErrorHandler(
+          `Account temporarily locked due to too many failed login attempts. Try again in ${lockMinutes} minute(s).`,
+          429
+        )
+      );
+    }
+
+    await user.save();
     return next(new ErrorHandler("Incorrect email or password", 400));
   }
 
+  // Successful login — clear any failed-attempt state.
+  user.failedAttempts = 0;
+  user.lockUntil = null;
   user.lastLogin = new Date();
   await user.save();
 
@@ -208,6 +265,22 @@ export const uploadAvatar = catchAsyncErrors(async (req, res, next) => {
 
     if (!image) {
       return next(new ErrorHandler("No image file provided", 400));
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    if (user.avatar) {
+      const publicId = getPublicIdFromUrl(user.avatar);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (delErr) {
+          console.error("Old avatar delete failed:", delErr.message);
+        }
+      }
     }
 
     const upload = await uploadImage(image);
@@ -280,15 +353,29 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
     const user = await UserModel.findOne({ email });
 
     if (!user) {
-      return next(new ErrorHandler("Email not available", 400));
+      return res.json({
+        message:
+          "If the email exists, a password reset OTP has been sent. Please check your inbox.",
+        error: false,
+        success: true,
+      });
     }
+
 
     const otp = generatedOtp();
     const expireTime = new Date(new Date().getTime() + 10 * 60 * 1000);
 
+    if (shouldLogOtp) {
+      console.log(`\n=== FORGOT PASSWORD OTP FOR ${email} IS: ${otp} ===\n`);
+    }
+
+    const otpHash = await bcryptjs.hash(String(otp), 10);
+
     const update = await UserModel.findByIdAndUpdate(user._id, {
-      forgot_password_otp: otp,
-      forgot_password_expiry: new Date(expireTime).toISOString(),
+      forgot_password_otp: otpHash,
+      forgot_password_expiry: expireTime,
+      forgot_password_failedAttempts: 0,
+      forgot_password_lockUntil: null,
     });
 
     if (!update) {
@@ -323,25 +410,84 @@ export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Please provide both email and otp.", 400));
     }
 
+    const maxAttempts = Number(process.env.FORGOT_PASSWORD_MAX_ATTEMPTS) || 5;
+    const lockMinutes =
+      Number(process.env.FORGOT_PASSWORD_LOCK_MINUTES) || 15;
+
     const user = await UserModel.findOne({ email });
 
+    // Generic error message to avoid leaking whether the email exists
+    // or whether the OTP is correct.
+    const genericOtpError = new ErrorHandler(
+      "Invalid or expired OTP. Please request a new one.",
+      400
+    );
+
     if (!user) {
-      return next(new ErrorHandler("Email not registered.", 400));
+      return next(genericOtpError);
     }
 
-    const currentTime = new Date().toISOString();
-
-    if (user.forgot_password_expiry < currentTime) {
-      return next(new ErrorHandler("Otp has expired. Please req a new one.", 400));
+    // Lockout check
+    if (
+      user.forgot_password_lockUntil &&
+      user.forgot_password_lockUntil.getTime() > Date.now()
+    ) {
+      return next(
+        new ErrorHandler("Too many OTP attempts. Please try again later.", 429)
+      );
     }
 
-    if (otp !== user.forgot_password_otp) {
-      return next(new ErrorHandler("Invalid otp. Please try again.", 400));
+    // Expiry check
+    if (!user.forgot_password_expiry) {
+      return next(genericOtpError);
     }
 
+    const expiry = new Date(user.forgot_password_expiry).getTime();
+
+    if (Number.isNaN(expiry) || expiry < Date.now()) {
+      // OTP expired: reset attempt state to avoid keeping user locked forever.
+      user.forgot_password_failedAttempts = 0;
+      user.forgot_password_lockUntil = null;
+      await user.save();
+      return next(genericOtpError);
+    }
+
+    const isOtpValid = await bcryptjs.compare(
+      String(otp),
+      user.forgot_password_otp || ""
+    );
+
+    if (!isOtpValid) {
+      user.forgot_password_failedAttempts =
+        (user.forgot_password_failedAttempts || 0) + 1;
+
+      if (user.forgot_password_failedAttempts >= maxAttempts) {
+        user.forgot_password_lockUntil = new Date(
+          Date.now() + lockMinutes * 60 * 1000
+        );
+        user.forgot_password_failedAttempts = 0;
+      }
+
+      await user.save();
+
+      if (user.forgot_password_lockUntil) {
+        return next(
+          new ErrorHandler(
+            "Too many OTP attempts. Please try again later.",
+            429
+          )
+        );
+      }
+
+      return next(genericOtpError);
+    }
+
+    // Success: clear OTP + attempt/lock state.
     await UserModel.findByIdAndUpdate(user._id, {
-      forgot_password_otp: "",
-      forgot_password_expiry: "",
+      forgot_password_otp: null,
+      forgot_password_expiry: null,
+      forgot_password_failedAttempts: 0,
+      forgot_password_lockUntil: null,
     });
 
     return res.json({
@@ -350,27 +496,46 @@ export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
       success: true,
     });
   } catch (error) {
-    return next(new ErrorHandler(error.message || "An error occurred while verifying OTP.", 500));
+    return next(
+      new ErrorHandler(
+        error.message || "An error occurred while verifying OTP.",
+        500
+      )
+    );
   }
 });
 
 export const resetPassword = catchAsyncErrors(async (req, res, next) => {
+
   try {
     const { email, newPassword, confirmPassword } = req.body;
 
     if (!email || !newPassword || !confirmPassword) {
-      return next(new ErrorHandler("Please provide required fields: email, newPassword, and confirmPassword.", 400));
+      return next(
+        new ErrorHandler(
+          "Please provide required fields: email, newPassword, and confirmPassword.",
+          400
+        )
+      );
     }
 
     if (newPassword !== confirmPassword) {
-      return next(new ErrorHandler("New password and confirm password must be the same.", 400));
+      return next(
+        new ErrorHandler(
+          "New password and confirm password must be the same.",
+          400
+        )
+      );
     }
 
     if (newPassword.length < 6) {
-      return next(new ErrorHandler("Password must be at least 6 characters long.", 400));
+      return next(
+        new ErrorHandler("Password must be at least 6 characters long.", 400)
+      );
     }
 
     const user = await UserModel.findOne({ email });
+
 
     if (!user) {
       return next(new ErrorHandler("Email not found.", 400));
@@ -397,7 +562,9 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
       success: true,
     });
   } catch (error) {
-    return next(new ErrorHandler(error.message || "An error occurred while updating the password.", 500));
+    return next(
+      new ErrorHandler(error.message || "An error occurred while updating the password.", 500)
+    );
   }
 });
 
@@ -418,7 +585,9 @@ export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
       user,
     });
   } catch (error) {
-    return next(new ErrorHandler(error.message || "Server error while fetching user details", 500));
+    return next(
+      new ErrorHandler(error.message || "Server error while fetching user details", 500)
+    );
   }
 });
 
@@ -442,14 +611,25 @@ export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
     if (avatar) {
       const validImageTypes = ["image/jpeg", "image/png", "image/gif"];
       if (!validImageTypes.includes(avatar.mimetype)) {
-        return next(new ErrorHandler("Invalid image type. Only JPEG, PNG, and GIF are allowed.", 400));
+        return next(
+          new ErrorHandler(
+            "Invalid image type. Only JPEG, PNG, and GIF are allowed.",
+            400
+          )
+        );
       }
 
       const user = await UserModel.findById(userId);
 
       if (user.avatar) {
-        const publicId = user.avatar.split("/").pop().split(".")[0];
-        await deleteImage(`nj/${publicId}`);
+        const publicId = getPublicIdFromUrl(user.avatar);
+        if (publicId) {
+          try {
+            await deleteImage(publicId);
+          } catch (delErr) {
+            console.error("Old avatar delete failed:", delErr.message);
+          }
+        }
       }
 
       const uploadResult = await uploadImage(avatar);
@@ -473,11 +653,6 @@ export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
       message: "User details updated successfully",
       error: false,
       success: true,
-      // Return the updated user under `user` (matching the login and /me
-      // response shape) so the client can refresh its auth state without a
-      // re-login. `data` is kept for backward compatibility with any existing
-      // consumer. No new token is issued: the JWT is keyed on the user id,
-      // which never changes here, so the current token stays valid.
       user: updateUser,
       data: updateUser,
     });
@@ -560,7 +735,12 @@ export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
     const { email, role } = req.body;
 
     if (!role || !["USER", "ADMIN", "MANAGER"].includes(role)) {
-      return next(new ErrorHandler("Invalid role. Role must be either 'USER', 'MANAGER', or 'ADMIN'.", 400));
+      return next(
+        new ErrorHandler(
+          "Invalid role. Role must be either 'USER', 'MANAGER', or 'ADMIN'.",
+          400
+        )
+      );
     }
 
     const user = await UserModel.findOne({ email });
@@ -599,9 +779,14 @@ export const deleteUser = catchAsyncErrors(async (req, res, next) => {
     }
 
     if (user.avatar) {
-      const publicId = user.avatar.split("/").pop().split(".")[0];
-
-      await deleteImage(`ff/${publicId}`);
+      const publicId = getPublicIdFromUrl(user.avatar);
+      if (publicId) {
+        try {
+          await deleteImage(publicId);
+        } catch (delErr) {
+          console.error("Old avatar delete failed:", delErr.message);
+        }
+      }
     }
 
     await UserModel.findByIdAndDelete(userId);
@@ -713,3 +898,4 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("Server error", 500));
   }
 });
+

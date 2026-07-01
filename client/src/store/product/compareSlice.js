@@ -1,7 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const STORAGE_KEY = "compareList";
-const MAX_COMPARE = 3;
+const MAX_COMPARE = 4;
 
 // Load the persisted compare list so the selection survives navigation and
 // page refreshes. Stores the full (trimmed) part objects so the tray and the

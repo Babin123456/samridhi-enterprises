@@ -10,7 +10,12 @@ export const getPaymentSettings = catchAsyncErrors(async (req, res, next) => {
   const settings = await PaymentSettings.findOne();
   res.status(200).json({
     success: true,
-    settings: settings || { upiId: "", qrImage: { public_id: "", url: "" } },
+    settings: settings || {
+      upiId: "",
+      qrImage: { public_id: "", url: "" },
+      notifyAdminsOnNewOrder: true,
+      notifyAdminsOnNewTicket: true,
+    },
   });
 });
 
@@ -27,6 +32,19 @@ export const adminUpdatePaymentSettings = catchAsyncErrors(
 
     if (typeof upiId === "string") {
       settings.upiId = upiId.trim();
+    }
+
+    // Multipart form values arrive as strings ("true" / "false").
+    if (typeof req.body.notifyAdminsOnNewOrder !== "undefined") {
+      settings.notifyAdminsOnNewOrder =
+        req.body.notifyAdminsOnNewOrder === true ||
+        req.body.notifyAdminsOnNewOrder === "true";
+    }
+
+    if (typeof req.body.notifyAdminsOnNewTicket !== "undefined") {
+      settings.notifyAdminsOnNewTicket =
+        req.body.notifyAdminsOnNewTicket === true ||
+        req.body.notifyAdminsOnNewTicket === "true";
     }
 
     if (req.file) {

@@ -4,7 +4,27 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Samridhi Enterprises - Your one-stop shop for premium bike parts and accessories." />
+    <meta name="theme-color" content="#ffffff" />
+    <meta property="og:title" content="Samridhi Enterprises" />
+    <meta property="og:description" content="Samridhi Enterprises - Your one-stop shop for premium bike parts and accessories." />
+    <meta property="og:type" content="website" />
     <title>Samridhi Enterprises</title>
+    <script>
+      // Apply the saved (or OS-preferred) theme before first paint to avoid a
+      // flash of the wrong theme. Mirrors getInitialTheme in ThemeContext.
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t !== "light" && t !== "dark") {
+            t = window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+          }
+          if (t === "dark") document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
