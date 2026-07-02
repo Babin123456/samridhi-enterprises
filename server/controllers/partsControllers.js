@@ -6,6 +6,8 @@ import BikeModel from "../models/bikeModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import { uploadImage, deleteImage } from "../utils/cloudinary.js";
+import { logAudit } from "../utils/auditLogger.js";
+
 
 // Create a new part
 export const addPart = catchAsyncErrors(async (req, res, next) => {
@@ -43,7 +45,7 @@ export const addPart = catchAsyncErrors(async (req, res, next) => {
 export const getAllParts = catchAsyncErrors(async (req, res) => {
   const { vehicleId } = req.query;
 
-  const filter = {};
+  const filter = { isDeleted: false };
 
   if (vehicleId) {
     filter.vehicleCompatibility = vehicleId;
@@ -55,6 +57,7 @@ export const getAllParts = catchAsyncErrors(async (req, res) => {
   );
 
   res.status(200).json({
+
     success: true,
     count: parts.length,
     parts,
@@ -63,7 +66,11 @@ export const getAllParts = catchAsyncErrors(async (req, res) => {
 
 // Get single part
 export const getPartById = catchAsyncErrors(async (req, res, next) => {
-  const part = await Part.findById(req.params.id).populate("vehicleCompatibility", "name");
+  const part = await Part.findOne({
+    _id: req.params.id,
+    isDeleted: false,
+  }).populate("vehicleCompatibility", "name");
+
   if (!part) return next(new ErrorHandler("Part not found", 404));
 
   // Count this as a product view for analytics. Fire-and-forget: a failed
@@ -75,8 +82,9 @@ export const getPartById = catchAsyncErrors(async (req, res, next) => {
 
 // Update part
 export const updatePart = catchAsyncErrors(async (req, res, next) => {
-  const part = await Part.findById(req.params.id);
+  const part = await Part.findOne({ _id: req.params.id, isDeleted: false });
   if (!part) return next(new ErrorHandler("Part not found", 404));
+
 
   const fieldsToUpdate = ["product_id", "name", "description", "price", "stock", "category", "vehicleCompatibility", "bestseller"];
   fieldsToUpdate.forEach((field) => {
@@ -104,27 +112,58 @@ export const updatePart = catchAsyncErrors(async (req, res, next) => {
   }
 
   await part.save();
+
+  // Audit trail.
+  logAudit({
+    actorId: req.user._id,
+    actorRole: req.user.role,
+    action: "PART_UPDATE",
+    entityType: "Part",
+    entityId: part._id.toString(),
+    metadata: { updatedFields: fieldsToUpdate },
+  }).catch(() => {});
+
   res.status(200).json({ success: true, message: "Part updated", part });
+
 });
 
 // Delete part
 export const deletePart = catchAsyncErrors(async (req, res, next) => {
   const part = await Part.findById(req.params.id);
-  if (!part) return next(new ErrorHandler("Part not found", 404));
+  if (!part || part.isDeleted) return next(new ErrorHandler("Part not found", 404));
+
+
 
   for (const img of part.images) {
     await deleteImage(img.public_id);
   }
 
-  await part.deleteOne();
-  res.status(200).json({ success: true, message: "Part deleted" });
+  // Soft delete (preserve history for orders/analytics/reviews)
+  part.isDeleted = true;
+  part.deletedAt = new Date();
+  await part.save();
+
+  // Audit trail.
+  logAudit({
+    actorId: req.user._id,
+    actorRole: req.user.role,
+    action: "PART_DELETE",
+    entityType: "Part",
+    entityId: part._id.toString(),
+    metadata: {},
+  }).catch(() => {});
+
+  res.status(200).json({ success: true, message: "Part soft-deleted" });
+
 });
 
 // Add or update review
 export const createOrUpdateReview = catchAsyncErrors(async (req, res, next) => {
   const { rating, comment } = req.body;
-  const part = await Part.findById(req.params.id);
+  const part = await Part.findOne({ _id: req.params.id, isDeleted: false });
+
   if (!part) return next(new ErrorHandler("Part not found", 404));
+
 
   const existingReviewIndex = part.reviews.findIndex(
     (r) => r.user.toString() === req.user._id.toString()
@@ -153,8 +192,12 @@ export const createOrUpdateReview = catchAsyncErrors(async (req, res, next) => {
 export const getSimilarParts = catchAsyncErrors(async (req, res, next) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 20);
 
-  const current = await Part.findById(req.params.id);
+  const current = await Part.findOne({
+    _id: req.params.id,
+    isDeleted: false,
+  });
   if (!current) return next(new ErrorHandler("Part not found", 404));
+
 
   const compatibilityIds = (current.vehicleCompatibility || []).map((v) =>
     v.toString()
@@ -242,8 +285,9 @@ export const getFrequentlyBoughtTogether = catchAsyncErrors(
     );
 
     const targetId = req.params.id;
-    const current = await Part.findById(targetId);
+    const current = await Part.findOne({ _id: targetId, isDeleted: false });
     if (!current) return next(new ErrorHandler("Part not found", 404));
+
 
     // All non-cancelled orders that include the target part.
     const orders = await Order.find({
@@ -275,9 +319,14 @@ export const getFrequentlyBoughtTogether = catchAsyncErrors(
 
     let parts = [];
     if (rankedIds.length > 0) {
-      const found = await Part.find({ _id: { $in: rankedIds } }).select(
+      const found = await Part.find({
+        _id: { $in: rankedIds },
+        isDeleted: false,
+      }).select(
         "product_id name price stock category images ratings numOfReviews bestseller"
       );
+
+
       // Preserve the co-occurrence ranking order (Mongo doesn't guarantee it).
       const byId = new Map(found.map((p) => [p._id.toString(), p]));
       parts = rankedIds
@@ -291,7 +340,9 @@ export const getFrequentlyBoughtTogether = catchAsyncErrors(
       parts = await Part.find({
         _id: { $ne: current._id },
         category: current.category,
+        isDeleted: false,
       })
+
         .select(
           "product_id name price stock category images ratings numOfReviews bestseller"
         )
@@ -382,7 +433,9 @@ export const getRecommendedForYou = catchAsyncErrors(async (req, res, next) => {
     parts = await Part.find({
       _id: { $nin: ownedArray },
       category: { $in: preferredCategories },
+      isDeleted: false,
     })
+
       .select(
         "product_id name price stock category images ratings numOfReviews bestseller"
       )
@@ -397,7 +450,9 @@ export const getRecommendedForYou = catchAsyncErrors(async (req, res, next) => {
     ];
     const filler = await Part.find({
       _id: { $nin: excludeIds },
+      isDeleted: false,
     })
+
       .select(
         "product_id name price stock category images ratings numOfReviews bestseller"
       )
@@ -467,18 +522,22 @@ export const trackRecommendationClick = catchAsyncErrors(async (req, res) => {
 // All computed from the lightweight counters on the Part model.
 export const adminGetRecommendationAnalytics = catchAsyncErrors(
   async (req, res) => {
+    // Admin/Manager dashboards should not show soft-deleted parts.
+
     const LIMIT = 8;
 
     const [mostViewed, mostRecommended, totalsAgg] = await Promise.all([
-      // Most viewed products.
-      Part.find({ viewCount: { $gt: 0 } })
+      // Most viewed products (exclude soft-deleted).
+      Part.find({ viewCount: { $gt: 0 }, isDeleted: false })
+
         .sort({ viewCount: -1 })
         .limit(LIMIT)
         .select("name category viewCount images"),
 
       // Most recommended products (most impressions in recommendation rows),
-      // with per-product CTR included.
-      Part.find({ recommendationImpressions: { $gt: 0 } })
+      // with per-product CTR included (exclude soft-deleted).
+      Part.find({ recommendationImpressions: { $gt: 0 }, isDeleted: false })
+
         .sort({ recommendationImpressions: -1 })
         .limit(LIMIT)
         .select(
@@ -549,10 +608,12 @@ export const adminGetRecommendationAnalytics = catchAsyncErrors(
 
 // Delete review
 export const deleteReview = catchAsyncErrors(async (req, res, next) => {
-  const part = await Part.findById(req.params.id);
+  const part = await Part.findOne({ _id: req.params.id, isDeleted: false });
+
   if (!part) return next(new ErrorHandler("Part not found", 404));
 
   part.reviews = part.reviews.filter((r) => r.user.toString() !== req.user._id.toString());
+
   part.numOfReviews = part.reviews.length;
   part.ratings = part.reviews.length
     ? part.reviews.reduce((sum, r) => sum + r.rating, 0) / part.reviews.length

@@ -96,11 +96,23 @@ const userSchema = new mongoose.Schema(
       enum: ["ADMIN", "MANAGER", "USER"],
       default: "USER",
     },
+
+    // Soft delete / audit trail support
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
   }
 );
+
 
 // Hash password before saving
 userSchema.pre("save", async function () {

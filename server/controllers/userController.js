@@ -8,9 +8,12 @@ import { deleteImage, uploadImage, getPublicIdFromUrl } from "../utils/cloudinar
 import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 const OTP_MODE = process.env.OTP_MODE || "production";
+
 const shouldLogOtp = OTP_MODE === "dev";
+
 
 export const registerUser = catchAsyncErrors(async (req, res, next) => {
   try {
@@ -668,15 +671,22 @@ export const getAllUsers = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Access denied. Admins only.", 403));
     }
 
+    // Non-admin flows should never expose soft-deleted users.
+    // (Admin/Manager requests are handled here through their role.)
+    const includeDeleted = req.user.role === "ADMIN";
+
+
     const { page = 1, limit = 10, search = "" } = req.query;
     const skip = (page - 1) * limit;
 
     const query = {
+      ...(includeDeleted ? {} : { isDeleted: false }),
       $or: [
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ],
     };
+
 
     const totalUsers = await UserModel.countDocuments(query);
 
@@ -708,7 +718,11 @@ export const getSingleUser = catchAsyncErrors(async (req, res, next) => {
 
     const userId = req.params.id;
 
-    const user = await UserModel.findById(userId).select("-password");
+    const user = await UserModel.findOne({
+      _id: userId,
+      ...(req.user.role === "ADMIN" ? {} : { isDeleted: false }),
+    }).select("-password");
+
 
     if (!user) {
       return next(new ErrorHandler("User not found", 404));
@@ -749,11 +763,24 @@ export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("User not found", 404));
     }
 
+    const previousRole = user.role;
     user.role = role;
     const updatedUser = await user.save();
 
+    // Audit trail (best-effort).
+    logAudit({
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      action: "USER_ROLE_UPDATE",
+      entityType: "User",
+      entityId: user._id.toString(),
+      metadata: { previousRole, nextRole: role },
+    }).catch(() => {});
+
     return res.json({
+
       message: "User role updated successfully",
+
       error: false,
       success: true,
       data: updatedUser,
@@ -789,10 +816,25 @@ export const deleteUser = catchAsyncErrors(async (req, res, next) => {
       }
     }
 
-    await UserModel.findByIdAndDelete(userId);
+    // Soft delete user instead of hard delete to preserve audit/order history.
+    await UserModel.findByIdAndUpdate(userId, {
+      $set: { isDeleted: true, deletedAt: new Date() },
+    });
+
+    // Best-effort audit trail.
+    await logAudit({
+      actorId: req.user._id,
+      actorRole: req.user.role,
+      action: "USER_DELETE",
+      entityType: "User",
+      entityId: userId,
+      metadata: { previousRole: user.role, previousStatus: user.status },
+    }).catch(() => {});
+
 
     return res.json({
-      message: "User and avatar deleted successfully",
+      message: "User soft-deleted successfully",
+
       success: true,
       error: false,
     });
@@ -817,8 +859,21 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("User not found", 404));
     }
 
+    const previousStatus = user.status;
     user.status = status;
     await user.save();
+
+    // Audit trail (best-effort).
+    logAudit({
+      actorId: req.user._id,
+      actorRole: req.user.role,
+
+      action: "USER_STATUS_UPDATE",
+      entityType: "User",
+      entityId: user._id.toString(),
+      metadata: { previousStatus, nextStatus: status },
+    }).catch(() => {});
+
 
     if (status === "Warning") {
       await sendEmail({
