@@ -22,7 +22,15 @@
 /** Stock at or below this level is "Low Stock" (> 0 units but ≤ LOW_STOCK). */
 export const LOW_STOCK_THRESHOLD = 5;
 
-/** Stock at or above this level is considered fully "In Stock" (admin views). */
+/**
+ * Upper bound of the customer-facing "Limited Stock" band. On the customer
+ * product page, stock above LOW_STOCK_THRESHOLD but at or below this value shows
+ * "Limited Stock", and only stock above this value shows "In Stock".
+ *
+ * NOTE: the admin view (getStockStatus) does NOT use this threshold — there any
+ * stock above LOW_STOCK_THRESHOLD is already "In Stock". This value is used only
+ * by getCustomerStockStatus.
+ */
 export const IN_STOCK_THRESHOLD = 15;
 
 // ---------------------------------------------------------------------------
@@ -131,8 +139,22 @@ export const getCompareBadge = (stock) => {
 
 /**
  * Customer-facing stock display for the single-product page.
- * Uses the same numeric thresholds as the admin view but with warmer
- * customer-facing copy ("Only few left!" rather than "Low Stock").
+ *
+ * This intentionally uses a finer-grained scale than the admin view. It reads
+ * the same canonical constants from this module (LOW_STOCK_THRESHOLD and
+ * IN_STOCK_THRESHOLD), but adds a customer-only "Limited Stock" urgency band
+ * that the admin's binary low/in-stock split does not have, and uses warmer
+ * copy ("Only few left!" rather than "Low Stock"):
+ *
+ *   stock <= 0                          → "Out of Stock"
+ *   0 < stock <= LOW_STOCK_THRESHOLD    → "Only few left!"
+ *   LOW_STOCK < stock <= IN_STOCK       → "Limited Stock"   (customer-only tier)
+ *   stock > IN_STOCK_THRESHOLD          → "In Stock"
+ *
+ * Consequence: for a stock count of 6-15, the admin view (getStockStatus) shows
+ * "In Stock" while the customer view shows "Limited Stock". This is a deliberate
+ * UX difference layered on the shared thresholds, not a divergence in the
+ * canonical threshold values.
  *
  * @param {number} stock
  * @returns {{ text: string, color: string, bg: string }}
