@@ -10,6 +10,7 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 const ResetPassword = () => {
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -21,16 +22,20 @@ const ResetPassword = () => {
 
   useEffect(() => {
     const storedEmail = localStorage.getItem("resetEmail");
-    if (storedEmail) {
+    const storedOtp = localStorage.getItem("resetOtp");
+    if (storedEmail && storedOtp) {
       setEmail(storedEmail);
+      setOtp(storedOtp);
     } else {
+      localStorage.removeItem("resetEmail");
+      localStorage.removeItem("resetOtp");
       toast.error("Invalid request! Please verify OTP first.");
       navigate("/verify-otp");
     }
   }, [navigate]);
 
   const handleResetPassword = () => {
-    if (!email || !newPassword || !confirmPassword) {
+    if (!email || !otp || !newPassword || !confirmPassword) {
       toast.error("All fields are required!");
       return;
     }
@@ -42,13 +47,14 @@ const ResetPassword = () => {
       toast.error("Passwords do not match!");
       return;
     }
-    dispatch(resetPassword({ email, newPassword, confirmPassword }));
+    dispatch(resetPassword({ email, otp, newPassword, confirmPassword }));
   };
 
   useEffect(() => {
     if (success) {
       toast.success("Password updated successfully! Redirecting to login...");
       localStorage.removeItem("resetEmail");
+      localStorage.removeItem("resetOtp");
       setTimeout(() => {
         navigate("/login");
       }, 2000);
