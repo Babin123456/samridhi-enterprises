@@ -450,6 +450,11 @@ const authSlice = createSlice({
       .addCase(getSingleDetail.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
+        state.isAuthenticated = true;
+        state.verifyEmail = action.payload?.user?.verifyEmail ?? action.payload?.verifyEmail ?? state.verifyEmail;
+        if (typeof action.payload?.user?.verifyEmail === "boolean") {
+          localStorage.setItem("verifyEmail", String(action.payload.user.verifyEmail));
+        }
       })
       .addCase(getSingleDetail.rejected, (state, action) => {
         state.loading = false;
