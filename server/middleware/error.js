@@ -1,11 +1,19 @@
 import ErrorHandler from "../utils/errorHandler.js";
+const sanitizeError = (err) => {
+  // Create a copy to avoid mutating the original error object
+  const cleanErr = { ...err };
+  // List of sensitive keys to remove
+  const sensitiveKeys = ['password', 'token', 'refreshToken', 'secret', 'authorization'];
+  
+  sensitiveKeys.forEach(key => delete cleanErr[key]);
+  return cleanErr;
+};
 
 const errorMiddleware = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.message = err.message || "Internal Server Error";
 
-  console.error(`[${req.method} ${req.originalUrl}]`, err.stack || err);
-
+  console.error(`[${req.method} ${req.originalUrl}]`, sanitizeError(err.stack || err));
   // Wrong Mongodb Id error
   if (err.name === "CastError") {
     const message = `Resource not found. Invalid: ${err.path}`;
