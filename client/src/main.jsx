@@ -6,15 +6,19 @@ import { Provider } from "react-redux";
 import store from "./store/store.js";
 import { HelmetProvider } from "react-helmet-async";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 createRoot(document.getElementById("root")).render(
   <HelmetProvider>
     <ThemeProvider>
       <BrowserRouter>
         <Provider store={store}>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </Provider>
       </BrowserRouter>
     </ThemeProvider>
   </HelmetProvider>
 );
+

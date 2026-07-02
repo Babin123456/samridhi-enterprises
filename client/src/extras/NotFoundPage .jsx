@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
-import { FiArrowLeft, FiCoffee } from "react-icons/fi";
+import { ArrowLeft, Coffee } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const NotFoundPage = () => {
@@ -39,7 +39,7 @@ const NotFoundPage = () => {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.7 }}
         >
-          <FiCoffee className="text-6xl text-amber-600 dark:text-amber-400" />
+          <Coffee className="text-6xl text-amber-600 dark:text-amber-400" />
         </Motion.div>
 
         <Motion.h1
@@ -86,7 +86,7 @@ const NotFoundPage = () => {
             to="/"
             className="flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 dark:from-amber-700 dark:to-amber-800 dark:hover:from-amber-600 dark:hover:to-amber-700 text-white font-medium text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 group"
           >
-            <FiArrowLeft className="text-xl transition-transform group-hover:-translate-x-1" />
+            <ArrowLeft className="text-xl transition-transform group-hover:-translate-x-1" />
             Return Home
           </Link>
           

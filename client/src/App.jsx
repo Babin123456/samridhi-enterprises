@@ -43,6 +43,7 @@ const AdminPaymentSettings = lazy(() => import("./pages/admin/AdminPaymentSettin
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const CustomerPage = lazy(() => import("./pages/admin/CustomerPage"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const NotFoundPage = lazy(() => import("./extras/NotFoundPage "));
 
 function App() {
   const dispatch = useDispatch();
@@ -233,9 +234,11 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
       </main>
+
 
       <Footer />
 
