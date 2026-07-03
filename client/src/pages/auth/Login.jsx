@@ -116,7 +116,7 @@ const Login = () => {
               placeholder="Your Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-blue-200 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-300/70 text-blue-600 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base"
             />
           </motion.div>
 
@@ -127,7 +127,7 @@ const Login = () => {
               placeholder="Your Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-14 py-3 rounded-xl border border-blue-200 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-300/70 text-blue-600 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-14 py-3 rounded-xl border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base"
             />
             <motion.div
               whileHover={{ scale: 1.15, rotate: 5 }}

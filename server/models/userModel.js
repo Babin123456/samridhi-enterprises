@@ -96,6 +96,10 @@ const userSchema = new mongoose.Schema(
       enum: ["ADMIN", "MANAGER", "USER"],
       default: "USER",
     },
+    hasWeakPassword: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

@@ -8,6 +8,7 @@ import { deleteImage, uploadImage, getPublicIdFromUrl } from "../utils/cloudinar
 import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
+import validatePassword from "../utils/validatePassword.js";
 
 const OTP_MODE = process.env.OTP_MODE || "production";
 const shouldLogOtp = OTP_MODE === "dev";
@@ -18,6 +19,11 @@ export const registerUser = catchAsyncErrors(async (req, res, next) => {
 
     if (!name || !email || !password) {
       return next(new ErrorHandler("Please fill all required fields", 400));
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return next(new ErrorHandler(passwordValidation.message, 400));
     }
 
     const existingUser = await UserModel.findOne({ email });
@@ -236,6 +242,11 @@ export const loginUser = catchAsyncErrors(async (req, res, next) => {
   user.failedAttempts = 0;
   user.lockUntil = null;
   user.lastLogin = new Date();
+
+  // Check if current password meets password strength policy. If not, flag it.
+  const passwordStrength = validatePassword(password);
+  user.hasWeakPassword = !passwordStrength.isValid;
+
   await user.save();
 
   sendToken(user, 200, res);
@@ -333,7 +344,13 @@ export const updatePassword = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Password does not match", 400));
     }
 
+    const passwordValidation = validatePassword(req.body.newPassword);
+    if (!passwordValidation.isValid) {
+      return next(new ErrorHandler(passwordValidation.message, 400));
+    }
+
     user.password = req.body.newPassword;
+    user.hasWeakPassword = false;
     await user.save();
 
     return res.json({
@@ -529,10 +546,9 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
       );
     }
 
-    if (newPassword.length < 6) {
-      return next(
-        new ErrorHandler("Password must be at least 6 characters long.", 400)
-      );
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return next(new ErrorHandler(passwordValidation.message, 400));
     }
 
     const user = await UserModel.findOne({ email });
@@ -616,6 +632,7 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
       user._id,
       {
         password: hashPassword,
+        hasWeakPassword: false,
         forgot_password_otp: null,
         forgot_password_expiry: null,
         forgot_password_failedAttempts: 0,

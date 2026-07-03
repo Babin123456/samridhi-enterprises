@@ -8,6 +8,14 @@ import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
+const passwordRequirements = [
+  { id: "length", label: "8+ characters", test: (pw) => pw.length >= 8 },
+  { id: "uppercase", label: "Uppercase letter (A-Z)", test: (pw) => /[A-Z]/.test(pw) },
+  { id: "lowercase", label: "Lowercase letter (a-z)", test: (pw) => /[a-z]/.test(pw) },
+  { id: "number", label: "Number (0-9)", test: (pw) => /\d/.test(pw) },
+  { id: "special", label: "Special character", test: (pw) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
+];
+
 const ResetPassword = () => {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -39,8 +47,9 @@ const ResetPassword = () => {
       toast.error("All fields are required!");
       return;
     }
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters!");
+    const isAllRequirementsMet = passwordRequirements.every((req) => req.test(newPassword));
+    if (!isAllRequirementsMet) {
+      toast.error("Password does not meet complexity requirements!");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -166,6 +175,36 @@ const ResetPassword = () => {
                   {showNewPassword ? <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Eye className="w-5 h-5 sm:w-6 sm:h-6" />}
                 </motion.div>
               </motion.div>
+
+              <AnimatePresence>
+                {newPassword && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="p-4 bg-blue-50/50 rounded-xl border border-blue-200 text-xs sm:text-sm text-blue-800 space-y-2 overflow-hidden"
+                  >
+                    <p className="font-semibold text-blue-900 mb-1">Password requirements:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {passwordRequirements.map((req) => {
+                        const isMet = req.test(newPassword);
+                        return (
+                          <div key={req.id} className="flex items-center gap-2">
+                            <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              isMet ? "bg-green-500 text-white" : "bg-blue-200/50 text-blue-400"
+                            }`}>
+                              {isMet ? "✓" : "✗"}
+                            </span>
+                            <span className={isMet ? "text-green-600 line-through decoration-green-400/50" : "text-blue-600/70"}>
+                              {req.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <motion.div variants={itemVariants} className="relative">
                 <motion.div
