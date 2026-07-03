@@ -217,10 +217,11 @@ export const verifyOtp = createAsyncThunk(
 
 export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
-  async ({ email, newPassword, confirmPassword }, { rejectWithValue }) => {
+  async ({ email, otp, newPassword, confirmPassword }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.put("/api/user/reset-password", {
         email,
+        otp,
         newPassword,
         confirmPassword,
       });
@@ -449,6 +450,11 @@ const authSlice = createSlice({
       .addCase(getSingleDetail.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload.user;
+        state.isAuthenticated = true;
+        state.verifyEmail = action.payload?.user?.verifyEmail ?? action.payload?.verifyEmail ?? state.verifyEmail;
+        if (typeof action.payload?.user?.verifyEmail === "boolean") {
+          localStorage.setItem("verifyEmail", String(action.payload.user.verifyEmail));
+        }
       })
       .addCase(getSingleDetail.rejected, (state, action) => {
         state.loading = false;

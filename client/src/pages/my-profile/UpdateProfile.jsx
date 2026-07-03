@@ -191,12 +191,12 @@ const UpdateProfile = () => {
 
           <motion.button
             type="submit"
-            disabled={loading}
+            disabled={loading && !user}
             className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-lg font-semibold rounded-xl shadow-lg transform transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
             whileHover={{ scale: 1.03, boxShadow: "0 10px 20px rgba(59, 130, 246, 0.3)" }}
             whileTap={{ scale: 0.97 }}
           >
-            {loading ? (
+            {loading && !user ? (
               <motion.span
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}

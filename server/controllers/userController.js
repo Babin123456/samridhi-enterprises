@@ -23,6 +23,11 @@ export const registerUser = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Please fill all required fields", 400));
     }
 
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return next(new ErrorHandler(passwordValidation.message, 400));
+    }
+
     const existingUser = await UserModel.findOne({ email });
 
     if (existingUser) {
@@ -239,6 +244,11 @@ export const loginUser = catchAsyncErrors(async (req, res, next) => {
   user.failedAttempts = 0;
   user.lockUntil = null;
   user.lastLogin = new Date();
+
+  // Check if current password meets password strength policy. If not, flag it.
+  const passwordStrength = validatePassword(password);
+  user.hasWeakPassword = !passwordStrength.isValid;
+
   await user.save();
 
   sendToken(user, 200, res);
@@ -336,7 +346,13 @@ export const updatePassword = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Password does not match", 400));
     }
 
+    const passwordValidation = validatePassword(req.body.newPassword);
+    if (!passwordValidation.isValid) {
+      return next(new ErrorHandler(passwordValidation.message, 400));
+    }
+
     user.password = req.body.newPassword;
+    user.hasWeakPassword = false;
     await user.save();
 
     return res.json({
@@ -485,10 +501,11 @@ export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
       return next(genericOtpError);
     }
 
-    // Success: clear OTP + attempt/lock state.
+    // OTP is correct. Reset only the brute-force counters here; do NOT clear the
+    // OTP itself — it must survive so resetPassword can consume it (single-use)
+    // when the new password is submitted. verifyOtp is a UX correctness check;
+    // the real single-use consumption happens at reset-password.
     await UserModel.findByIdAndUpdate(user._id, {
-      forgot_password_otp: null,
-      forgot_password_expiry: null,
       forgot_password_failedAttempts: 0,
       forgot_password_lockUntil: null,
     });
@@ -511,12 +528,12 @@ export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
 export const resetPassword = catchAsyncErrors(async (req, res, next) => {
 
   try {
-    const { email, newPassword, confirmPassword } = req.body;
+    const { email, otp, newPassword, confirmPassword } = req.body;
 
-    if (!email || !newPassword || !confirmPassword) {
+    if (!email || !otp || !newPassword || !confirmPassword) {
       return next(
         new ErrorHandler(
-          "Please provide required fields: email, newPassword, and confirmPassword.",
+          "Please provide required fields: email, otp, newPassword, and confirmPassword.",
           400
         )
       );
@@ -531,26 +548,97 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
       );
     }
 
-    if (newPassword.length < 6) {
-      return next(
-        new ErrorHandler("Password must be at least 6 characters long.", 400)
-      );
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return next(new ErrorHandler(passwordValidation.message, 400));
     }
 
     const user = await UserModel.findOne({ email });
 
+    // Generic error to avoid leaking whether the email exists or whether the
+    // OTP is correct (mirrors verifyOtp's enumeration-safe messaging).
+    const genericOtpError = new ErrorHandler(
+      "Invalid or expired OTP. Please request a new one.",
+      400
+    );
 
     if (!user) {
-      return next(new ErrorHandler("Email not found.", 400));
+      return next(genericOtpError);
+    }
+
+    // Brute-force lockout, shared with verifyOtp via the same user fields so the
+    // reset endpoint cannot be used to bypass the verify-otp lockout.
+    if (
+      user.forgot_password_lockUntil &&
+      user.forgot_password_lockUntil.getTime() > Date.now()
+    ) {
+      return next(
+        new ErrorHandler("Too many OTP attempts. Please try again later.", 429)
+      );
+    }
+
+    // A reset OTP must have been requested and not yet consumed. verifyOtp no
+    // longer clears the OTP, so a verified-but-not-yet-reset OTP is still present
+    // here; it is consumed below only after a successful password reset.
+    if (!user.forgot_password_otp || !user.forgot_password_expiry) {
+      return next(genericOtpError);
+    }
+
+    const otpExpiry = new Date(user.forgot_password_expiry).getTime();
+    if (Number.isNaN(otpExpiry) || otpExpiry < Date.now()) {
+      // Expired: clear attempt state so the user is not locked out forever.
+      user.forgot_password_failedAttempts = 0;
+      user.forgot_password_lockUntil = null;
+      await user.save();
+      return next(genericOtpError);
+    }
+
+    const isOtpValid = await bcryptjs.compare(
+      String(otp),
+      user.forgot_password_otp || ""
+    );
+
+    if (!isOtpValid) {
+      const maxAttempts =
+        Number(process.env.FORGOT_PASSWORD_MAX_ATTEMPTS) || 5;
+      const lockMinutes =
+        Number(process.env.FORGOT_PASSWORD_LOCK_MINUTES) || 15;
+
+      user.forgot_password_failedAttempts =
+        (user.forgot_password_failedAttempts || 0) + 1;
+
+      if (user.forgot_password_failedAttempts >= maxAttempts) {
+        user.forgot_password_lockUntil = new Date(
+          Date.now() + lockMinutes * 60 * 1000
+        );
+        user.forgot_password_failedAttempts = 0;
+      }
+
+      await user.save();
+
+      if (user.forgot_password_lockUntil) {
+        return next(
+          new ErrorHandler("Too many OTP attempts. Please try again later.", 429)
+        );
+      }
+
+      return next(genericOtpError);
     }
 
     const salt = await bcryptjs.genSalt(10);
     const hashPassword = await bcryptjs.hash(newPassword, salt);
 
+    // OTP valid: update the password AND consume the OTP (single-use) together
+    // with any failed-attempt / lock state, in one atomic update.
     const updatedUser = await UserModel.findByIdAndUpdate(
       user._id,
       {
         password: hashPassword,
+        hasWeakPassword: false,
+        forgot_password_otp: null,
+        forgot_password_expiry: null,
+        forgot_password_failedAttempts: 0,
+        forgot_password_lockUntil: null,
       },
       { new: true }
     );

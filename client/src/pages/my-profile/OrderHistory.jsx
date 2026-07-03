@@ -326,7 +326,7 @@ const OrderHistory = () => {
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-4 space-y-2 mb-4">
                   {order.items.map((item, idx) => (
                     <div
-                      key={idx}
+                      key={item._id || item.part || `${order._id}-${idx}`}
                       className="flex justify-between items-center text-sm"
                     >
                       <span className="text-gray-700 dark:text-gray-200 pr-2">

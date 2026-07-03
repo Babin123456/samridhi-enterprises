@@ -56,7 +56,7 @@ userRouter.put("/forgot-password", authOtpIpLimit, forgotPassword);
 userRouter.put("/verify-otp", authOtpIpLimit, verifyOtp);
 
 
-userRouter.put("/reset-password", resetPassword);
+userRouter.put("/reset-password", authOtpIpLimit, resetPassword);
 
 userRouter.get("/me", auth, getUserDetails);
 

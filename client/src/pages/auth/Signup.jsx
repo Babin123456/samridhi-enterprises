@@ -7,6 +7,14 @@ import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import { clearError, signupUser } from "@/store/auth-slice/user";
 
+const passwordRequirements = [
+  { id: "length", label: "8+ characters", test: (pw) => pw.length >= 8 },
+  { id: "uppercase", label: "Uppercase letter (A-Z)", test: (pw) => /[A-Z]/.test(pw) },
+  { id: "lowercase", label: "Lowercase letter (a-z)", test: (pw) => /[a-z]/.test(pw) },
+  { id: "number", label: "Number (0-9)", test: (pw) => /\d/.test(pw) },
+  { id: "special", label: "Special character", test: (pw) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
+];
+
 const SignUp = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,6 +29,11 @@ const SignUp = () => {
     e.preventDefault();
     if (!name || !email || !password) {
       toast.error("Please fill in all fields");
+      return;
+    }
+    const isAllRequirementsMet = passwordRequirements.every((req) => req.test(password));
+    if (!isAllRequirementsMet) {
+      toast.error("Password does not meet complexity requirements!");
       return;
     }
     try {
@@ -103,7 +116,7 @@ const SignUp = () => {
               placeholder="Your Full Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base"
               whileFocus={{ scale: 1.02 }}
             />
           </div>
@@ -122,7 +135,7 @@ const SignUp = () => {
               placeholder="Your Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base"
               whileFocus={{ scale: 1.02 }}
             />
           </div>
@@ -141,7 +154,7 @@ const SignUp = () => {
               placeholder="Create Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-12 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-12 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base"
               whileFocus={{ scale: 1.02 }}
             />
             <motion.div
@@ -157,6 +170,36 @@ const SignUp = () => {
               )}
             </motion.div>
           </div>
+
+          <AnimatePresence>
+            {password && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mb-5 p-4 bg-blue-50/50 rounded-xl border border-blue-200 text-xs sm:text-sm text-blue-800 space-y-2 overflow-hidden"
+              >
+                <p className="font-semibold text-blue-900 mb-1">Password requirements:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {passwordRequirements.map((req) => {
+                    const isMet = req.test(password);
+                    return (
+                      <div key={req.id} className="flex items-center gap-2">
+                        <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          isMet ? "bg-green-500 text-white" : "bg-blue-200/50 text-blue-400"
+                        }`}>
+                          {isMet ? "✓" : "✗"}
+                        </span>
+                        <span className={isMet ? "text-green-600 line-through decoration-green-400/50" : "text-blue-600/70"}>
+                          {req.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <motion.button
             variants={buttonVariants}
