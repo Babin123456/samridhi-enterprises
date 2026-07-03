@@ -22,6 +22,7 @@ import { Link } from "react-router-dom";
 import {
   adminGetDashboardAnalytics,
 } from "@/store/order/orderSlice";
+import AdminAnalytics from "./AdminAnalytics";
 
 // Indian-rupee formatter shared by the revenue card.
 const formatINR = (n) =>
@@ -35,7 +36,6 @@ const formatINR = (n) =>
 // linked here so the dashboard is the single entry point for all admin work.
 const quickLinks = [
   { to: "/admin/orders", label: "Manage Orders", icon: ClipboardList },
-  { to: "/admin/analytics", label: "Sales Analytics", icon: BarChart3 },
   { to: "/admin/brands", label: "Bike Brands", icon: Building2 },
   { to: "/admin/bikes", label: "Bike Models", icon: Car },
   { to: "/admin/parts", label: "Bike Parts", icon: Wrench },
@@ -159,6 +159,7 @@ const AdminDashboard = () => {
           Management
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* eslint-disable-next-line no-unused-vars */}
           {quickLinks.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
@@ -171,6 +172,8 @@ const AdminDashboard = () => {
           ))}
         </div>
       </div>
+
+      <AdminAnalytics />
     </div>
   );
 };

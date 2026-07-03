@@ -105,8 +105,38 @@ const partSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // --- Recommendation / engagement analytics counters ---
+    // Number of times this product's detail page has been viewed.
+    viewCount: {
+      type: Number,
+      default: 0,
+    },
+    // Number of times this product has been shown inside a recommendation row
+    // (Similar Products, Frequently Bought Together, Recommended For You).
+    recommendationImpressions: {
+      type: Number,
+      default: 0,
+    },
+    // Number of times a user clicked through to this product from a
+    // recommendation row. Clicks / impressions gives the recommendation CTR.
+    recommendationClicks: {
+      type: Number,
+      default: 0,
+    },
+
+    // Soft delete / audit trail support
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 export default mongoose.model("Part", partSchema);
+

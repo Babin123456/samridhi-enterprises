@@ -116,7 +116,7 @@ const Login = () => {
               placeholder="Your Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-blue-200 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-300/70 text-blue-600 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base"
             />
           </motion.div>
 
@@ -127,16 +127,22 @@ const Login = () => {
               placeholder="Your Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-14 py-3 rounded-xl border border-blue-200 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-300/70 text-blue-600 transition-all duration-300 text-sm sm:text-base"
+              className="w-full pl-12 pr-14 py-3 rounded-xl border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base"
             />
-            <motion.div
+            <motion.button
+              type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
               whileHover={{ scale: 1.15, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
               className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-blue-400 hover:text-blue-500 transition-colors duration-300"
               onClick={() => setShowPassword(!showPassword)}
             >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </motion.div>
+              {showPassword ? (
+                <EyeOff size={20} aria-hidden="true" />
+              ) : (
+                <Eye size={20} aria-hidden="true" />
+              )}
+            </motion.button>
           </motion.div>
 
           <motion.div

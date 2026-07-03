@@ -54,13 +54,38 @@ const MyProfile = () => {
 
   return (
     <motion.div
-      className="min-h-screen bg-gradient-to-br  from-blue-50 via-white to-blue-100 py-12 px-4 sm:px-8 lg:px-16"
+      className="min-h-screen bg-gradient-to-br  from-blue-50 via-white to-blue-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 py-12 px-4 sm:px-8 lg:px-16"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
       <MediData title="My Profile | Samridhi Enterprises" />
       <div className="max-w-6xl mx-auto mb-20 mt-20">
+        {user?.hasWeakPassword && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm"
+          >
+            <div className="flex items-center gap-3 text-amber-800 dark:text-amber-300">
+              <span className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center font-bold text-lg">
+                ⚠️
+              </span>
+              <div>
+                <p className="font-semibold text-sm sm:text-base">Security Recommendation</p>
+                <p className="text-xs sm:text-sm text-amber-700/80 dark:text-amber-400/80">
+                  Your current password does not meet our updated security requirements. Please update it to protect your account.
+                </p>
+              </div>
+            </div>
+            <NavLink
+              to="/update-password"
+              className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors shadow-sm whitespace-nowrap"
+            >
+              Update Password
+            </NavLink>
+          </motion.div>
+        )}
         <div className="text-center mb-12">
           <motion.h1
             className="text-4xl sm:text-5xl font-serif font-bold text-blue-500 tracking-tight"
@@ -111,7 +136,7 @@ const MyProfile = () => {
           </motion.p>
 
           <motion.div
-            className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-blue-100"
+            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 max-w-md w-full border border-blue-100 dark:border-blue-900"
             variants={containerVariants}
           >
             <motion.h3
@@ -124,7 +149,7 @@ const MyProfile = () => {
               {displayFields.map((field) => (
                 <motion.div
                   key={field}
-                  className="p-5 rounded-xl bg-blue-50 border border-blue-200 shadow-sm hover:shadow-md transition-shadow duration-300"
+                  className="p-5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow duration-300"
                   variants={itemVariants}
                   whileHover={{ y: -5 }}
                 >
@@ -142,7 +167,7 @@ const MyProfile = () => {
 
         <div className="hidden sm:grid sm:grid-cols-1 lg:grid-cols-3 gap-8">
           <motion.div
-            className="bg-white rounded-3xl shadow-2xl border border-blue-100 p-8 lg:col-span-1"
+            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-blue-100 dark:border-blue-900 p-8 lg:col-span-1"
             variants={containerVariants}
           >
             <div className="text-center">
@@ -151,7 +176,7 @@ const MyProfile = () => {
                 variants={itemVariants}
               >
                 <div
-                  className="w-32 h-32 mx-auto rounded-full overflow-hidden bg-blue-100 cursor-pointer border-4 border-blue-400 shadow-lg ring-2 ring-blue-200"
+                  className="w-32 h-32 mx-auto rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900/30 cursor-pointer border-4 border-blue-400 shadow-lg ring-2 ring-blue-200"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <AnimatePresence>
@@ -239,7 +264,7 @@ const MyProfile = () => {
           </motion.div>
 
           <motion.div
-            className="bg-white rounded-3xl shadow-2xl border border-blue-100 p-8 lg:col-span-2"
+            className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-blue-100 dark:border-blue-900 p-8 lg:col-span-2"
             variants={containerVariants}
           >
             <motion.h3
@@ -252,7 +277,7 @@ const MyProfile = () => {
               {displayFields.map((field) => (
                 <motion.div
                   key={field}
-                  className="p-6 rounded-xl bg-blue-50 border border-blue-200 shadow-sm hover:shadow-md transition-shadow duration-300"
+                  className="p-6 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow duration-300"
                   variants={itemVariants}
                   whileHover={{ y: -5 }}
                 >
@@ -268,7 +293,7 @@ const MyProfile = () => {
           </motion.div>
         </div>
 
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white shadow-2xl py-6 flex justify-around border-t border-blue-200 z-50">
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-2xl py-6 flex justify-around border-t border-blue-200 dark:border-blue-800 z-50">
           {[
             { to: "/my-profile", icon: User, label: "Profile" },
             { to: "/my-orders", icon: ShoppingBag, label: "Orders" },
@@ -281,7 +306,7 @@ const MyProfile = () => {
               to={link.to}
               className={({ isActive }) =>
                 `flex flex-col items-center text-xs transition-all duration-300 ${
-                  isActive ? "text-blue-500" : "text-gray-500"
+                  isActive ? "text-blue-500" : "text-gray-500 dark:text-gray-400"
                 }`
               }
             >

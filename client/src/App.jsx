@@ -1,43 +1,48 @@
+import React, { Suspense, lazy, useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
 import Header from "./components/Header";
-import Home from "./pages/Home";
-import { ToastContainer } from "react-toastify";
-import Login from "./pages/auth/Login";
-import SignUp from "./pages/auth/Signup";
-import VerifyEmail from "./pages/auth/VerifyEmail";
-import ForgotPassword from "./pages/auth/ForgotPassword";
-import VerifyOtp from "./pages/auth/ResetVerifyOtp";
-import ResetPassword from "./pages/auth/ResetPassword";
-import MyProfile from "./pages/my-profile/MyProfile";
-import ProtectedRoute from "./extras/ProtectedRoute";
-import UpdatePassword from "./pages/my-profile/UpdatePassword";
-import UpdateProfile from "./pages/my-profile/UpdateProfile";
 import Footer from "./components/Footer";
-import AdminBrandPage from "./pages/admin/AdminBrandPage";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminAnalytics from "./pages/admin/AdminAnalytics";
-import AdminBikeModelPage from "./pages/admin/AdminBikePage";
-import AdminPartPage from "./pages/admin/AdminPartPage";
-import SingleProductPage from "./pages/products/SingleProduct";
-import Cart from "./pages/Cart";
+import { ToastContainer } from "react-toastify";
+import ProtectedRoute from "./extras/ProtectedRoute";
 import { useDispatch } from "react-redux";
-import { useEffect } from "react";
 import { fetchCart } from "./store/cart/cartSlice";
+import { fetchWishlist } from "./store/wishlist/wishlistSlice";
 import { getSingleDetail } from "./store/auth-slice/user";
-import ProductsPage from "./pages/products/ProductsPage";
-import ComparePage from "./pages/products/ComparePage";
-import Checkout from "./pages/Checkout";
-import OrderHistory from "./pages/my-profile/OrderHistory";
-import SupportTickets from "./pages/my-profile/SupportTickets";
-import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
-import MyAddresses from "./pages/my-profile/MyAddresses";
-import AdminOrders from "./pages/admin/AdminOrders";
-import AdminPaymentSettings from "./pages/admin/AdminPaymentSettings";
-import InventoryPage from "./pages/admin/InventoryPage";
-import CustomerPage from "./pages/admin/CustomerPage";
-import AdminCoupons from "./pages/admin/AdminCoupons";
 import SupportAssistant from "./components/SupportAssistant";
 import CompareTray from "./components/CompareTray";
+import Loader from "./extras/Loader";
+import SessionTimeoutHandler from "./components/SessionTimeoutHandler";
+
+const Home = lazy(() => import("./pages/Home"));
+const Login = lazy(() => import("./pages/auth/Login"));
+const SignUp = lazy(() => import("./pages/auth/Signup"));
+const VerifyEmail = lazy(() => import("./pages/auth/VerifyEmail"));
+const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const VerifyOtp = lazy(() => import("./pages/auth/ResetVerifyOtp"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
+const MyProfile = lazy(() => import("./pages/my-profile/MyProfile"));
+const UpdatePassword = lazy(() => import("./pages/my-profile/UpdatePassword"));
+const UpdateProfile = lazy(() => import("./pages/my-profile/UpdateProfile"));
+const AdminBrandPage = lazy(() => import("./pages/admin/AdminBrandPage"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
+const AdminBikeModelPage = lazy(() => import("./pages/admin/AdminBikePage"));
+const AdminPartPage = lazy(() => import("./pages/admin/AdminPartPage"));
+const SingleProductPage = lazy(() => import("./pages/products/SingleProduct"));
+const Cart = lazy(() => import("./pages/Cart"));
+const ProductsPage = lazy(() => import("./pages/products/ProductsPage"));
+const ComparePage = lazy(() => import("./pages/products/ComparePage"));
+const WishlistPage = lazy(() => import("./pages/wishlist/WishlistPage"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const OrderHistory = lazy(() => import("./pages/my-profile/OrderHistory"));
+const SupportTickets = lazy(() => import("./pages/my-profile/SupportTickets"));
+const AdminSupportTickets = lazy(() => import("./pages/admin/AdminSupportTickets"));
+const MyAddresses = lazy(() => import("./pages/my-profile/MyAddresses"));
+const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
+const AdminPaymentSettings = lazy(() => import("./pages/admin/AdminPaymentSettings"));
+const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
+const CustomerPage = lazy(() => import("./pages/admin/CustomerPage"));
+const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
 
 function App() {
   const dispatch = useDispatch();
@@ -46,10 +51,17 @@ function App() {
     dispatch(fetchCart());
     if (localStorage.getItem("token")) {
       dispatch(getSingleDetail());
+      dispatch(fetchWishlist());
     }
   }, [dispatch]);
   return (
     <div className="">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -63,7 +75,9 @@ function App() {
       />
       <Header />
 
-      <Routes>
+      <main id="main-content" tabIndex={-1}>
+      <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader /></div>}>
+        <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/login" element={<Login />} />
@@ -100,11 +114,11 @@ function App() {
         />
         <Route
           path="/cart"
-          element={
-            <ProtectedRoute>
-              <Cart />
-            </ProtectedRoute>
-          }
+          element={<Cart />}
+        />
+        <Route
+          path="/wishlist"
+          element={<WishlistPage />}
         />
         <Route
           path="/checkout"
@@ -144,14 +158,6 @@ function App() {
           element={
             <ProtectedRoute isAdmin={true}>
               <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/analytics"
-          element={
-            <ProtectedRoute isAdmin={true}>
-              <AdminAnalytics />
             </ProtectedRoute>
           }
         />
@@ -227,11 +233,14 @@ function App() {
             </ProtectedRoute>
           }
         />
-      </Routes>
+        </Routes>
+      </Suspense>
+      </main>
 
       <Footer />
 
-      {/* Site-wide rule-based support assistant (floating widget) */}
+      {/* Site-wide session inactivity timeout handler */}
+      <SessionTimeoutHandler />
       <SupportAssistant />
       <CompareTray />
     </div>

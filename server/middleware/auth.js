@@ -4,7 +4,7 @@ import User from "../models/userModel.js";
 const auth = async (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
 
-  if (!token) {
+  if (!token || token === "null") {
     return res
       .status(401)
       .json({ success: false, message: "Please login again" });
@@ -18,12 +18,16 @@ const auth = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    if (req.user.status === "Suspended") {
+      return res.status(403).json({ success: false, message: "Your account is suspended" });
+    }
+
     next();
   } catch (error) {
     console.log(error);
     if (error.name === "JsonWebTokenError") {
       return res
-        .status(400)
+        .status(401)
         .json({ success: false, message: "Token expired, please login again" });
     }
 

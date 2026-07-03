@@ -2,13 +2,16 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchParts, clearPartError } from "../../store/product/partsSlice";
 import { addToCompare, removeFromCompare } from "../../store/product/compareSlice";
+import { addToWishlist, removeFromWishlist } from "../../store/wishlist/wishlistSlice";
 import { fetchBikeModels } from "../../store/product/bikeSlice";
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "../../extras/Loader";
 import { Link, useSearchParams } from "react-router-dom";
-import { GitCompare, Check } from "lucide-react";
+import { GitCompare, Check, Heart } from "lucide-react";
+import SEO from "../../components/SEO";
+import ProductSkeleton from "../../components/ProductSkeleton";
 
 const categories = [
   "Abs",
@@ -75,6 +78,9 @@ const ProductsPage = () => {
   const { items: compareItems, max: compareMax } = useSelector(
     (state) => state.compare
   );
+  const { wishlist } = useSelector((state) => state.wishlist);
+  const wishlistItems = wishlist?.items || [];
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const {
     bikeModels = [],
     loading: bikeLoading,
@@ -138,7 +144,6 @@ const ProductsPage = () => {
   // search, and the results now fit on 2 pages).
   useEffect(() => {
     setCurrentPage(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, filterCategory, filterCompatibility, filterBrand, filterYear, filterEngine, filterStockStatus, sortBy, priceRange]);
 
   const handleFilterCompatibilityChange = (modelId) => {
@@ -206,6 +211,23 @@ const ProductsPage = () => {
       dispatch(removeFromCompare(part._id));
     } else {
       dispatch(addToCompare(part));
+    }
+  };
+
+  // Add or remove a product from the user's (server-backed) wishlist.
+  const isInWishlist = (id) =>
+    wishlistItems.some((i) => (i.part?._id || i.part) === id);
+  const toggleWishlist = (e, part) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      toast.info("Please log in to use your wishlist");
+      return;
+    }
+    if (isInWishlist(part._id)) {
+      dispatch(removeFromWishlist(part._id));
+    } else {
+      dispatch(addToWishlist(part._id));
     }
   };
 
@@ -295,38 +317,42 @@ const ProductsPage = () => {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-gray-100 mt-20 sm:mt-24 mb-16">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 mt-20 sm:mt-24 mb-16">
+      <SEO title="Products" />
       <motion.header
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white shadow-sm border-b sticky top-0 z-30"
+        className="bg-white dark:bg-gray-800 shadow-sm border-b sticky top-0 z-30"
       >
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
             Bike Spares Parts
           </h1>
-          <span className="text-sm text-gray-500">
-            {parts.length} total parts
+          <span className="text-sm text-gray-500 dark:text-gray-400" aria-live="polite" aria-atomic="true">
+            {totalFiltered} of {parts.length} parts
           </span>
         </div>
       </motion.header>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="p-4 border-b border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex flex-col gap-4">
               <div className="flex-1 max-w-md">
                 <div className="relative">
+                  <label htmlFor="parts-search" className="sr-only">Search parts</label>
                   <input
+                    id="parts-search"
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search parts by name or Product ID..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    aria-label="Search parts by name or product ID"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   />
                   <svg
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400 dark:text-gray-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -341,10 +367,13 @@ const ProductsPage = () => {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <label htmlFor="parts-sort" className="sr-only">Sort products</label>
                 <select
+                  id="parts-sort"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  aria-label="Sort products"
+                  className="w-full sm:w-auto px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="name">Sort by Name</option>
                   <option value="price-low">Price: Low to High</option>
@@ -358,13 +387,13 @@ const ProductsPage = () => {
           <div className="p-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Category
                 </label>
                 <select
                   value={filterCategory}
                   onChange={(e) => setFilterCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">All Categories</option>
                   {categories.map((cat) => (
@@ -375,11 +404,11 @@ const ProductsPage = () => {
                 </select>
               </div>
               <div className="relative" ref={filterDropdownRef}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Bike Models
                 </label>
                 <div
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md cursor-pointer bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
                 >
                   {filterCompatibility.length > 0
@@ -393,7 +422,7 @@ const ProductsPage = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto"
+                      className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto"
                     >
                       {bikeModels.length > 0 ? (
                         bikeModels.map((model) => (
@@ -407,15 +436,15 @@ const ProductsPage = () => {
                               onChange={() =>
                                 handleFilterCompatibilityChange(model._id)
                               }
-                              className="mr-2 h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded"
+                              className="mr-2 h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
                             />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 dark:text-gray-200">
                               {model.name}
                             </span>
                           </label>
                         ))
                       ) : (
-                        <div className="px-3 py-2 text-gray-500 text-sm">
+                        <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-sm">
                           No bike models available
                         </div>
                       )}
@@ -424,13 +453,13 @@ const ProductsPage = () => {
                 </AnimatePresence>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Vehicle Brand
                 </label>
                 <select
                   value={filterBrand}
                   onChange={(e) => setFilterBrand(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">All Brands</option>
                   {brandOptions.map((b) => (
@@ -441,13 +470,13 @@ const ProductsPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Manufacturing Year
                 </label>
                 <select
                   value={filterYear}
                   onChange={(e) => setFilterYear(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">Any Year</option>
                   {yearOptions.map((y) => (
@@ -458,14 +487,14 @@ const ProductsPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Engine Type
                 </label>
                 <select
                   value={filterEngine}
                   onChange={(e) => setFilterEngine(e.target.value)}
                   disabled={engineOptions.length === 0}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">
                     {engineOptions.length === 0 ? "No engine data" : "Any Engine"}
@@ -478,7 +507,7 @@ const ProductsPage = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Price Range (₹{priceRange[0].toLocaleString()} - ₹
                   {priceRange[1].toLocaleString()})
                 </label>
@@ -492,7 +521,7 @@ const ProductsPage = () => {
                         priceRange[1],
                       ])
                     }
-                    className="w-full sm:w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full sm:w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="0"
                     max={priceRange[1]}
                   />
@@ -515,7 +544,7 @@ const ProductsPage = () => {
                         parseInt(e.target.value) || 10000,
                       ])
                     }
-                    className="w-full sm:w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full sm:w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min={priceRange[0]}
                     max="10000"
                   />
@@ -532,13 +561,13 @@ const ProductsPage = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Stock Status
                 </label>
                 <select
                   value={filterStockStatus}
                   onChange={(e) => setFilterStockStatus(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                 >
                   <option value="">All Stock Status</option>
                   <option value="inStock">In Stock ({">"} 15)</option>
@@ -563,17 +592,17 @@ const ProductsPage = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-4 gap-2">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
             {totalFiltered === 0
               ? "No parts found"
               : `Showing ${pageStart + 1}–${Math.min(pageStart + pageSize, totalFiltered)} of ${totalFiltered} part${totalFiltered !== 1 ? "s" : ""}${totalFiltered < parts.length ? ` (filtered from ${parts.length})` : ""}`}
           </p>
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500">Per page:</label>
+            <label className="text-sm text-gray-500 dark:text-gray-400">Per page:</label>
             <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {[6, 12, 24, 48].map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -582,15 +611,17 @@ const ProductsPage = () => {
           </div>
         </div>
 
-        {sortedAndFilteredParts.length === 0 ? (
+        {partsLoading ? (
+          <ProductSkeleton count={pageSize} />
+        ) : sortedAndFilteredParts.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 mx-4 p-8 sm:p-12 text-center"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mx-4 p-8 sm:p-12 text-center"
           >
             <svg
-              className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400"
+              className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400 dark:text-gray-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -602,10 +633,10 @@ const ProductsPage = () => {
                 d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-8V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
               />
             </svg>
-            <h3 className="mt-2 text-base sm:text-lg font-medium text-gray-900">
+            <h3 className="mt-2 text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
               No parts found
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Try adjusting your search or filter criteria
             </p>
           </motion.div>
@@ -621,8 +652,30 @@ const ProductsPage = () => {
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
                   whileHover={{ y: -4 }}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg hover:border-blue-200 transition-all duration-300 overflow-hidden flex flex-col"
+                  className="relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-blue-200 transition-all duration-300 overflow-hidden flex flex-col"
                 >
+                  <button
+                    onClick={(e) => toggleWishlist(e, part)}
+                    aria-label={
+                      isInWishlist(part._id)
+                        ? "Remove from wishlist"
+                        : "Add to wishlist"
+                    }
+                    title={
+                      isInWishlist(part._id)
+                        ? "Remove from wishlist"
+                        : "Add to wishlist"
+                    }
+                    className="absolute top-2 right-2 z-10 p-2 rounded-full bg-white/90 backdrop-blur shadow hover:bg-white transition"
+                  >
+                    <Heart
+                      className={`w-5 h-5 transition ${
+                        isInWishlist(part._id)
+                          ? "fill-red-500 text-red-500"
+                          : "text-gray-500"
+                      }`}
+                    />
+                  </button>
                   <Link to={`/products/${part._id}`}>
                     <div className="w-full">
                       <motion.img
@@ -631,15 +684,16 @@ const ProductsPage = () => {
                           "https://via.placeholder.com/150"
                         }
                         alt={part.name}
+                        loading="lazy"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.3, delay: 0.1 }}
-                        className="object-cover w-full h-44 rounded-t-lg bg-gray-50"
+                        className="object-cover w-full h-44 rounded-t-lg bg-gray-50 dark:bg-gray-800"
                       />
                     </div>
                     <div className="p-3 sm:p-4 flex-1">
                       <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-base font-semibold text-gray-900 line-clamp-2 capitalize">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 capitalize">
                           {part.name}
                         </h3>
                         {part.bestseller && (
@@ -650,13 +704,13 @@ const ProductsPage = () => {
                       </div>
                       <div className="space-y-2 mb-3 sm:mb-4">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Product ID:</span>
-                          <span className="font-mono text-gray-900">
+                          <span className="text-gray-500 dark:text-gray-400">Product ID:</span>
+                          <span className="font-mono text-gray-900 dark:text-gray-100">
                             {part.product_id}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold text-gray-900">
+                          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
                             ₹{part.price.toLocaleString()}
                           </span>
                           <span
@@ -675,11 +729,11 @@ const ProductsPage = () => {
                               : "Out of Stock"}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
                           <span className="font-medium">Category:</span>{" "}
                           {part.category}
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
                           <span className="font-medium">Compatible:</span>{" "}
                           <span className="uppercase">
                             {part.vehicleCompatibility.length > 0
@@ -709,7 +763,7 @@ const ProductsPage = () => {
                       className={`w-full inline-flex items-center justify-center gap-2 text-sm font-medium px-3 py-2 rounded-lg border transition disabled:opacity-50 disabled:cursor-not-allowed ${
                         isInCompare(part._id)
                           ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700"
-                          : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600"
+                          : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-blue-400 hover:text-blue-600"
                       }`}
                       title={
                         !isInCompare(part._id) &&
@@ -745,7 +799,7 @@ const ProductsPage = () => {
               whileTap={{ scale: 0.95 }}
               onClick={() => { setCurrentPage(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               disabled={safePage === 1}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               aria-label="First page"
             >
               «
@@ -755,7 +809,7 @@ const ProductsPage = () => {
               whileTap={{ scale: 0.95 }}
               onClick={() => { setCurrentPage((p) => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               disabled={safePage === 1}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               aria-label="Previous page"
             >
               ‹
@@ -773,7 +827,7 @@ const ProductsPage = () => {
                   className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
                     n === safePage
                       ? "bg-blue-500 text-white border-blue-500 font-semibold"
-                      : "border-gray-300 hover:bg-gray-50"
+                      : "border-gray-300 dark:border-gray-600 hover:bg-gray-50"
                   }`}
                   aria-label={`Page ${n}`}
                   aria-current={n === safePage ? "page" : undefined}
@@ -787,7 +841,7 @@ const ProductsPage = () => {
               whileTap={{ scale: 0.95 }}
               onClick={() => { setCurrentPage((p) => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               disabled={safePage === totalPages}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               aria-label="Next page"
             >
               ›
@@ -797,7 +851,7 @@ const ProductsPage = () => {
               whileTap={{ scale: 0.95 }}
               onClick={() => { setCurrentPage(totalPages); window.scrollTo({ top: 0, behavior: "smooth" }); }}
               disabled={safePage === totalPages}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               aria-label="Last page"
             >
               »
@@ -805,7 +859,7 @@ const ProductsPage = () => {
           </div>
         )}
 
-        {(partsLoading || bikeLoading) && <Loader />}
+        {bikeLoading && <Loader />}
       </div>
     </div>
   );

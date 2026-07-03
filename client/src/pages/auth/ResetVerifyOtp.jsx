@@ -27,6 +27,7 @@ const VerifyOtp = () => {
     if (success && otp) {
       toast.success("OTP Verified! Redirecting to Reset Password.");
       localStorage.setItem("resetEmail", email);
+      localStorage.setItem("resetOtp", otp);
       setTimeout(() => {
         navigate("/reset-password");
         dispatch(clearAuthState());

@@ -217,10 +217,11 @@ export const verifyOtp = createAsyncThunk(
 
 export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
-  async ({ email, newPassword, confirmPassword }, { rejectWithValue }) => {
+  async ({ email, otp, newPassword, confirmPassword }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.put("/api/user/reset-password", {
         email,
+        otp,
         newPassword,
         confirmPassword,
       });
