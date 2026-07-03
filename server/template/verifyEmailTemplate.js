@@ -3,7 +3,7 @@ const verifyEmailTemplate = ({ name, otp }) => {
     <div style="font-family: 'Helvetica Neue', Arial, sans-serif; color: #1e3a8a; max-width: 640px; margin: 0 auto; padding: 24px; border-radius: 12px; background: linear-gradient(145deg, #ffffff, #eff6ff); border: 1px solid #bfdbfe; box-shadow: 0 8px 24px rgba(29, 78, 216, 0.1);">
       <p style="font-size: 24px; font-weight: 700; margin: 0 0 16px;">Hello ${name},</p>
       <p style="font-size: 16px; line-height: 1.7; margin: 0 0 24px;">
-        Welcome to <strong>Samridhi Enterprises</strong>! 🚗 We're thrilled to have you on board.
+        Welcome to <strong>Samridhi Enterprises</strong>! We're thrilled to have you on board.
         To complete your registration, please use the OTP below to verify your email address.
       </p>
       <div style="text-align: center; margin: 32px 0;">
