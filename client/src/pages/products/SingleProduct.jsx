@@ -13,6 +13,7 @@ import { addToCart } from "../../store/cart/cartSlice";
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
+import RecentlyViewed, { RECENTLY_VIEWED_KEY } from "../../components/RecentlyViewed";
 
 const SingleProduct = () => {
   const { id } = useParams();
@@ -60,6 +61,36 @@ const SingleProduct = () => {
       }
     }
   }, [part, user, isAuthenticated]);
+
+  const addToRecentlyViewed = (product) => {
+    if (!product?._id) return;
+
+    try {
+      const storedItems = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || "[]");
+      const normalizedItems = Array.isArray(storedItems) ? storedItems : [];
+
+      const updatedItems = [
+        {
+          id: product._id,
+          name: product.name,
+          image: product.images?.[0]?.url || "",
+          price: product.price,
+        },
+        ...normalizedItems.filter((item) => item.id !== product._id),
+      ].slice(0, 5);
+
+      localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updatedItems));
+      window.dispatchEvent(new Event("recently-viewed-updated"));
+    } catch (error) {
+      console.error("Failed to save recently viewed products", error);
+    }
+  };
+
+  useEffect(() => {
+    if (part) {
+      addToRecentlyViewed(part);
+    }
+  }, [part]);
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {
@@ -111,6 +142,7 @@ const SingleProduct = () => {
     window.location.reload();
   };
 
+  
   const getStockStatus = () => {
     if (part.stock === 0)
       return { text: "Out of Stock", color: "text-red-500", bg: "bg-red-50" };
@@ -206,6 +238,8 @@ const SingleProduct = () => {
   }
 
   if (!part) return null;
+
+
 
   const stockStatus = getStockStatus();
 
@@ -793,6 +827,8 @@ const SingleProduct = () => {
                 </p>
               </motion.div>
             )}
+
+            <RecentlyViewed />
           </div>
         </motion.div>
       </div>
