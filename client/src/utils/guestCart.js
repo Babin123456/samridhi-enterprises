@@ -5,6 +5,24 @@ const EMPTY_CART = { items: [], total: 0 };
 
 const getItemPartId = (item) => item.part?._id || item.part || item.partId;
 
+// Resolve a numeric unit price for a cart item. `item.part` may be a populated
+// object (with `.price`) or a bare id string (a shape getItemPartId already
+// supports), so when the object price is unavailable, fall back to the item's
+// previously stored unit price (stored line total / quantity). This prevents
+// `item.part.price` from evaluating to undefined and poisoning the cart total
+// with NaN.
+const getUnitPrice = (item) => {
+  if (typeof item.part?.price === "number") {
+    return item.part.price;
+  }
+  const total = Number(item.price);
+  const qty = Number(item.quantity);
+  if (Number.isFinite(total) && qty > 0) {
+    return total / qty;
+  }
+  return 0;
+};
+
 const calculateTotal = (items) =>
   items.reduce((sum, item) => sum + Number(item.price || 0), 0);
 
@@ -45,8 +63,9 @@ export const upsertGuestCartItem = async ({ partId, quantity }) => {
 
   if (existingItemIndex >= 0) {
     const item = guestCart.items[existingItemIndex];
+    const unitPrice = getUnitPrice(item);
     item.quantity += quantity;
-    item.price = item.part.price * item.quantity;
+    item.price = unitPrice * item.quantity;
   } else {
     const partRes = await axiosInstance.get(`/api/parts/${partId}`);
     const partData = partRes.data.part;
@@ -70,9 +89,10 @@ export const updateGuestCartItem = ({ partId, quantity }) => {
   );
 
   if (itemIndex >= 0) {
-    const partData = guestCart.items[itemIndex].part;
-    guestCart.items[itemIndex].quantity = quantity;
-    guestCart.items[itemIndex].price = partData.price * quantity;
+    const item = guestCart.items[itemIndex];
+    const unitPrice = getUnitPrice(item);
+    item.quantity = quantity;
+    item.price = unitPrice * quantity;
   }
 
   saveGuestCart(guestCart);
