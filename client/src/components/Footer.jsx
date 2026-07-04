@@ -340,7 +340,7 @@ const Footer = () => {
                   </li>
                   <li>
                     <a
-                      href="mailto:email@gmail.com"
+                      href="mailto:support@samridhienterprises.com"
                       className="group flex items-center text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-all duration-300 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl flex items-center justify-center mr-4 shadow-lg border border-blue-500/20">
@@ -354,7 +354,7 @@ const Footer = () => {
                           Email
                         </span>
                         <span className="text-sm opacity-75">
-                          email@gmail.com
+                          support@samridhienterprises.com
                         </span>
                       </div>
                     </a>
