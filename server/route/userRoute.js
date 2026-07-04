@@ -1,4 +1,4 @@
-import express from "express";
+import { upload, validateImageSignature } from "../middleware/multer.js";
 import {
   deleteUser,
   forgotPassword,
@@ -19,7 +19,7 @@ import {
   verifyOtp,
 } from "../controllers/userController.js";
 import auth from "../middleware/auth.js";
-import upload from "../middleware/multer.js";
+
 import admin from "../middleware/Admin.js";
 
 const userRouter = express.Router();
@@ -34,8 +34,7 @@ userRouter.post("/login", loginUser);
 
 userRouter.get("/logout", logoutUser);
 
-userRouter.put("/upload-avatar", upload.single("avatar"), auth, uploadAvatar);
-
+userRouter.put("/upload-avatar", upload.single("avatar"), auth, validateImageSignature, uploadAvatar);
 userRouter.put("/update/password", auth, updatePassword);
 
 userRouter.put("/forgot-password", forgotPassword);
@@ -50,6 +49,7 @@ userRouter.put(
   "/update-user",
   auth,
   upload.single("avatar"),
+  validateImageSignature,
   updateUserDetails
 );
 
