@@ -9,10 +9,9 @@ import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
 import { logAudit } from "../utils/auditLogger.js";
+import { isOtpDevMode } from "../utils/validateEnv.js";
 
-const OTP_MODE = process.env.OTP_MODE || "production";
-
-const shouldLogOtp = OTP_MODE === "dev";
+const shouldLogOtp = isOtpDevMode();
 
 
 export const registerUser = catchAsyncErrors(async (req, res, next) => {

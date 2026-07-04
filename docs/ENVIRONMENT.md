@@ -30,7 +30,11 @@ root README) as the starting point.
 | `CLOUDINARY_NAME` | **Yes** | `index.js` (Cloudinary config) | Cloudinary cloud name. |
 | `CLOUDINARY_API_KEY` | **Yes** | `index.js` (Cloudinary config) | Cloudinary API key. |
 | `CLOUDINARY_API_SECRET` | **Yes** | `index.js` (Cloudinary config) | Cloudinary API secret. |
-| `BREVO_API_KEY` | **Yes** | Email sending (`sib-api-v3-sdk`) | Brevo (Sendinblue) API key used to send OTP / transactional email. |
+| `BREVO_API_KEY` | **Yes** | Email sending (`sib-api-v3-sdk`) | Brevo (Sendinblue) API key used to send OTP / transactional email. Set to `dummy` to bypass sending in development. |
+| `BREVO_SENDER_EMAIL` | No | `config/sendEmail.js` | From-address for transactional emails. Defaults to `noreply@samridhienterprises.com`. |
+| `BREVO_SENDER_NAME` | No | `config/sendEmail.js` | Display name for the sender. Defaults to `Samridhi Enterprises`. |
+| `OTP_MODE` | No | `controllers/userController.js` | `production` (default) sends OTPs via email; `dev` logs them to the console for local testing without Brevo. |
+| `TRUST_PROXY` | No | `index.js` | Set when deployed behind a trusted reverse proxy so rate limiter IP resolution works correctly. |
 
 > `http://localhost:5173` (the Vite dev origin) is always allowed by CORS in
 > addition to `FRONTEND_URL` / `FRONTEND_WWW_URL`, so local development works
@@ -63,6 +67,9 @@ CLOUDINARY_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-key
 CLOUDINARY_API_SECRET=your-secret
 BREVO_API_KEY=your-brevo-key
+BREVO_SENDER_EMAIL=noreply@samridhienterprises.com
+BREVO_SENDER_NAME="Samridhi Enterprises"
+OTP_MODE=dev
 ```
 
 ```env
