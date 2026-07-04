@@ -76,7 +76,7 @@ function App() {
       <Header />
 
       <main id="main-content" tabIndex={-1}>
-      <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader /></div>}>
+      <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader fullScreen={false} /></div>}>
         <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/verify-email" element={<VerifyEmail />} />

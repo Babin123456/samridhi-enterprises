@@ -140,7 +140,7 @@ const Cart = () => {
   };
 
   if (loading) {
-    return <Loader />;
+    return <Loader fullScreen={false} />;
   }
 
   if (!cart || !cart.items || cart.items.length === 0) {
