@@ -1,6 +1,9 @@
 import { v2 as cloudinary } from "cloudinary";
 
 const uploadImage = async (image) => {
+  if (global.uploadImageHook) {
+    return global.uploadImageHook(image);
+  }
   try {
     if (!image || !image.buffer) {
       throw new Error("No image buffer provided for upload.");
@@ -35,6 +38,9 @@ const uploadImage = async (image) => {
 };
 
 const deleteImage = async (public_id) => {
+  if (global.deleteImageHook) {
+    return global.deleteImageHook(public_id);
+  }
   try {
     if (!public_id) {
       throw new Error("Public ID is required for image deletion.");
@@ -54,4 +60,10 @@ const deleteImage = async (public_id) => {
   }
 };
 
-export { uploadImage, deleteImage };
+const getPublicIdFromUrl = (url) => {
+  if (!url) return null;
+  const matches = url.match(/\/upload\/(?:v\d+\/)?([^.]+)/);
+  return matches ? matches[1] : null;
+};
+
+export { uploadImage, deleteImage, getPublicIdFromUrl };

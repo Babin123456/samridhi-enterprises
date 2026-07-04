@@ -202,7 +202,7 @@ const AdminOrders = () => {
                     <div className="border-t border-gray-100 pt-3 space-y-1 mb-3">
                       {order.items.map((item, idx) => (
                         <div
-                          key={idx}
+                          key={item._id || item.part || `${order._id}-${idx}`}
                           className="flex justify-between text-sm"
                         >
                           <span className="text-gray-700 pr-2">

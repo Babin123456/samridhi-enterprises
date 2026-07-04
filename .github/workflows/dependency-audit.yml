@@ -1,0 +1,51 @@
+# Dependency vulnerability scanning for both npm workspaces.
+#  - dependency-review: blocks a PR that INTRODUCES a high-severity advisory
+#    (it never fails on pre-existing ones).
+#  - npm-audit: full advisory report for each workspace, reported (not gated)
+#    so existing advisories are visible without blocking every PR. Runs weekly.
+name: "Dependency Audit"
+
+on:
+  pull_request:
+    branches: [main, elusoc]
+  schedule:
+    - cron: "30 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+
+  npm-audit:
+    name: npm audit (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [client, server]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+      - name: Run npm audit (${{ matrix.workspace }})
+        working-directory: ${{ matrix.workspace }}
+        # Reported, not gated: surfaces advisories in the run log without
+        # blocking PRs on pre-existing issues. Remove once the tree is clean to
+        # make high-severity advisories a hard failure.
+        continue-on-error: true
+        run: npm audit --audit-level=high

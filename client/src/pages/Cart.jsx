@@ -5,6 +5,7 @@ import {
   updateCartItem,
   removeFromCart,
   clearError,
+  clearWarnings,
 } from "../store/cart/cartSlice";
 import { toast } from "react-toastify";
 import { Link, useNavigate } from "react-router-dom";
@@ -15,17 +16,21 @@ import { motion, AnimatePresence } from "framer-motion";
 const Cart = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { cart, loading, error } = useSelector((state) => state.cart);
+  const { cart, loading, error, warnings } = useSelector((state) => state.cart);
   const { isAuthenticated } = useSelector((state) => state.auth);
 
-  useEffect(() => {
+  const handleProceedToCheckout = () => {
     if (!isAuthenticated) {
-      toast.error("Please log in to view your cart");
-      navigate("/login");
-      return;
+      toast.info("Please log in to proceed to checkout");
+      navigate("/login?redirect=checkout");
+    } else {
+      navigate("/checkout");
     }
+  };
+
+  useEffect(() => {
     dispatch(fetchCart());
-  }, [dispatch, isAuthenticated, navigate]);
+  }, [dispatch]);
 
   useEffect(() => {
     if (error) {
@@ -140,7 +145,7 @@ const Cart = () => {
 
   if (!cart || !cart.items || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 mt-18">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 mt-18">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -180,7 +185,7 @@ const Cart = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="text-lg sm:text-xl text-gray-600 mb-10 max-w-md"
+            className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-10 max-w-md"
           >
             Discover amazing products and start your shopping journey
           </motion.p>
@@ -193,7 +198,7 @@ const Cart = () => {
             whileTap={{ scale: 0.98 }}
           >
             <Link
-              to="/"
+              to="/products"
               className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-2xl shadow-xl hover:shadow-2xl transform transition-all duration-300 text-lg group"
             >
               <span>Explore Products</span>
@@ -212,13 +217,35 @@ const Cart = () => {
               </svg>
             </Link>
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+            className="mt-12 w-full max-w-lg"
+          >
+            <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              Or shop by category
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {["Lighting Products", "Filters & Horn", "Gaskets", "Rear View Mirror", "Switches / Locks"].map((cat) => (
+                <Link
+                  key={cat}
+                  to={`/products?search=${encodeURIComponent(cat)}`}
+                  className="px-4 py-2 bg-white/60 hover:bg-white text-gray-700 hover:text-blue-600 rounded-full border border-gray-200 shadow-sm hover:shadow transition-all duration-200 text-sm font-medium"
+                >
+                  {cat}
+                </Link>
+              ))}
+            </div>
+          </motion.div>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 mt-18">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 mt-18">
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -234,11 +261,54 @@ const Cart = () => {
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-blue-600 bg-clip-text text-transparent mb-4">
             Shopping Cart
           </h1>
-          <p className="text-base sm:text-lg text-gray-600">
+          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300">
             {cart.items.length} {cart.items.length === 1 ? "item" : "items"} in
             your cart
           </p>
         </motion.div>
+
+        {warnings && warnings.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-amber-50/90 backdrop-blur-sm border border-amber-200/50 rounded-3xl flex items-start gap-4 shadow-md"
+          >
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-xl flex-shrink-0">
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-lg font-bold text-amber-900 mb-1">
+                Important Stock Updates
+              </h4>
+              <ul className="list-disc pl-5 space-y-1 text-amber-800 font-medium text-sm sm:text-base">
+                {warnings.map((warning, idx) => (
+                  <li key={idx}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => dispatch(clearWarnings())}
+              className="text-amber-500 hover:text-amber-700 transition-colors p-1 flex-shrink-0"
+              aria-label="Dismiss warnings"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </motion.div>
+        )}
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 lg:gap-12">
           <motion.div variants={itemVariants} className="xl:col-span-2">
@@ -254,7 +324,7 @@ const Cart = () => {
                     layout
                     className="group relative"
                   >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 rounded-2xl border border-gray-100 mb-6 last:mb-0 hover:border-blue-200 hover:shadow-lg transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 mb-6 last:mb-0 hover:border-blue-200 hover:shadow-lg transition-all duration-300">
                       <div className="relative flex-shrink-0">
                         <motion.div
                           whileHover={{ scale: 1.1, rotate: 2 }}
@@ -283,7 +353,7 @@ const Cart = () => {
                           to={`/products/${item.part?._id}`}
                           className="block group-hover:text-blue-600 transition-colors duration-200"
                         >
-                          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 line-clamp-2">
+                          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 line-clamp-2">
                             {item.name || "Unknown Product"}
                           </h3>
                         </Link>
@@ -310,7 +380,7 @@ const Cart = () => {
 
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                           {item.part && item.part._id && (
-                            <div className="flex items-center bg-gray-50 rounded-2xl p-1">
+                            <div className="flex items-center bg-gray-50 dark:bg-gray-800 rounded-2xl p-1">
                               <motion.button
                                 whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.95 }}
@@ -406,24 +476,24 @@ const Cart = () => {
           <motion.div variants={itemVariants} className="xl:col-span-1">
             <div className="sticky top-8">
               <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6 lg:p-8">
-                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8">
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
                   Order Summary
                 </h3>
 
                 <div className="space-y-4 mb-8" aria-live="polite" aria-atomic="true">
                   <div className="flex justify-between items-center text-lg">
-                    <span className="text-gray-600">
+                    <span className="text-gray-600 dark:text-gray-300">
                       Subtotal ({cart.items.length}{" "}
                       {cart.items.length === 1 ? "item" : "items"})
                     </span>
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
                       ₹{cart.total.toLocaleString()}
                     </span>
                   </div>
 
-                  <div className="border-t border-gray-200 pt-4">
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                     <div className="flex justify-between items-center text-xl sm:text-2xl font-bold">
-                      <span className="text-gray-900">Total</span>
+                      <span className="text-gray-900 dark:text-gray-100">Total</span>
                       <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
                         ₹{cart.total.toLocaleString()}
                       </span>
@@ -436,7 +506,7 @@ const Cart = () => {
                   whileTap={{ scale: 0.98 }}
                   className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 group"
                   disabled={cart.items.length === 0}
-                  onClick={() => navigate("/checkout")}
+                  onClick={handleProceedToCheckout}
                 >
                   <span>Proceed to Checkout</span>
                   <svg
