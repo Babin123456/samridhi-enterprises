@@ -44,7 +44,7 @@ export const registerUser = catchAsyncErrors(async (req, res, next) => {
 
     const emailResponse = await sendEmail({
       sendTo: email,
-      subject: "Verify Your Email - Nandani Jewelllers",
+      subject: "Verify Your Email - Samridhi Enterprises",
       html: verifyEmailTemplate({ name, otp }),
     });
 
@@ -974,13 +974,13 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
               </div>
               <p>Dear <strong>${user.name}</strong>,</p>
               <p>We are writing to inform you that your account on <strong>Samridhi Enterprises</strong> has been flagged for activities that violate our platform guidelines.</p>
-              <p>Please review the <a href="https://nandanijewellers.com" style="color: #0066cc;">Platform Guidelines</a> to ensure compliance.</p>
+              <p>Please review the <a href="https://samridhienterprises.com" style="color: #0066cc;">Platform Guidelines</a> to ensure compliance.</p>
               <p><strong>What You Need To Do:</strong></p>
               <ul>
                 <li>Review your recent activities on your account.</li>
                 <li>Make sure you are following the guidelines outlined in the link above.</li>
               </ul>
-              <p>If you have any questions or need assistance, feel free to <a href="mailto:support@nandanijewellers.com" style="color: #0066cc;">contact our support team</a>.</p>
+              <p>If you have any questions or need assistance, feel free to <a href="mailto:support@samridhienterprises.com" style="color: #0066cc;">contact our support team</a>.</p>
               <br>
               <p>Best regards,</p>
               <p><b>Samridhi Enterprises Team</b></p>
@@ -1003,9 +1003,9 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
               <p><strong>What You Can Do:</strong></p>
               <ul>
                 <li>Contact our support team to learn more about the suspension.</li>
-                <li>Review our <a href="https://nandanijewellers.com" style="color: #0066cc;">Platform Guidelines</a> and make sure your actions are aligned with them.</li>
+                <li>Review our <a href="https://samridhienterprises.com" style="color: #0066cc;">Platform Guidelines</a> and make sure your actions are aligned with them.</li>
               </ul>
-              <p>If you believe this suspension was a mistake, please reach out to our <a href="mailto:support@nandanijewellers.com" style="color: #0066cc;">support team</a>.</p>
+              <p>If you believe this suspension was a mistake, please reach out to our <a href="mailto:support@samridhienterprises.com" style="color: #0066cc;">support team</a>.</p>
               <br>
               <p>We value you as a part of our community, and we hope to resolve this issue quickly.</p>
               <p>Best regards,</p>
@@ -1027,7 +1027,7 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
               <p>Dear <strong>${user.name}</strong>,</p>
               <p>We are happy to inform you that your account is now active and in good standing on <strong>Samridhi Enterprises</strong>.</p>
               <p>You can now access all the platform features and continue to enjoy your experience with us.</p>
-              <p>If you have any questions or need assistance, feel free to <a href="mailto:support@nandanijewellers.com" style="color: #0066cc;">contact our support team</a>.</p>
+              <p>If you have any questions or need assistance, feel free to <a href="mailto:support@samridhienterprises.com" style="color: #0066cc;">contact our support team</a>.</p>
               <br>
               <p>Best regards,</p>
               <p><b>Samridhi Enterprises Team</b></p>
