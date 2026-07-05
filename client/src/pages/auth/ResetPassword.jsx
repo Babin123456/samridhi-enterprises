@@ -142,7 +142,11 @@ const ResetPassword = () => {
                 >
                   <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
                 </motion.div>
+                <label htmlFor="reset-email" className="sr-only">
+                  Email
+                </label>
                 <motion.input
+                  id="reset-email"
                   type="email"
                   value={email}
                   readOnly
@@ -158,7 +162,11 @@ const ResetPassword = () => {
                 >
                   <Lock className="w-5 h-5 sm:w-6 sm:h-6" />
                 </motion.div>
+                <label htmlFor="reset-new-password" className="sr-only">
+                  New Password
+                </label>
                 <motion.input
+                  id="reset-new-password"
                   type={showNewPassword ? "text" : "password"}
                   placeholder="New Password"
                   value={newPassword}
@@ -214,7 +222,11 @@ const ResetPassword = () => {
                 >
                   <Lock className="w-5 h-5 sm:w-6 sm:h-6" />
                 </motion.div>
+                <label htmlFor="reset-confirm-password" className="sr-only">
+                  Confirm Password
+                </label>
                 <motion.input
+                  id="reset-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm Password"
                   value={confirmPassword}
