@@ -12,6 +12,7 @@ import SupportAssistant from "./components/SupportAssistant";
 import CompareTray from "./components/CompareTray";
 import Loader from "./extras/Loader";
 import SessionTimeoutHandler from "./components/SessionTimeoutHandler";
+import RouteErrorHandler from "./components/RouteErrorHandler";
 
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -43,6 +44,7 @@ const AdminPaymentSettings = lazy(() => import("./pages/admin/AdminPaymentSettin
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const CustomerPage = lazy(() => import("./pages/admin/CustomerPage"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const NotFoundPage = lazy(() => import("./extras/NotFoundPage"));
 
 function App() {
   const dispatch = useDispatch();
@@ -78,21 +80,21 @@ function App() {
       <main id="main-content" tabIndex={-1}>
       <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader /></div>}>
         <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify-otp" element={<VerifyOtp />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-         <Route path="/products" element={<ProductsPage />} />
-        <Route path="/products/:id" element={<SingleProductPage />} />
-        <Route path="/compare" element={<ComparePage />} />
+        <Route path="/" element={<RouteErrorHandler><Home /></RouteErrorHandler>} />
+        <Route path="/verify-email" element={<RouteErrorHandler><VerifyEmail /></RouteErrorHandler>} />
+        <Route path="/login" element={<RouteErrorHandler><Login /></RouteErrorHandler>} />
+        <Route path="/signup" element={<RouteErrorHandler><SignUp /></RouteErrorHandler>} />
+        <Route path="/forgot-password" element={<RouteErrorHandler><ForgotPassword /></RouteErrorHandler>} />
+        <Route path="/verify-otp" element={<RouteErrorHandler><VerifyOtp /></RouteErrorHandler>} />
+        <Route path="/reset-password" element={<RouteErrorHandler><ResetPassword /></RouteErrorHandler>} />
+         <Route path="/products" element={<RouteErrorHandler><ProductsPage /></RouteErrorHandler>} />
+        <Route path="/products/:id" element={<RouteErrorHandler><SingleProductPage /></RouteErrorHandler>} />
+        <Route path="/compare" element={<RouteErrorHandler><ComparePage /></RouteErrorHandler>} />
         <Route
           path="/my-profile"
           element={
             <ProtectedRoute>
-              <MyProfile />
+              <RouteErrorHandler><MyProfile /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -100,7 +102,7 @@ function App() {
           path="/update-password"
           element={
             <ProtectedRoute>
-              <UpdatePassword />
+              <RouteErrorHandler><UpdatePassword /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -108,23 +110,23 @@ function App() {
           path="/update-profile"
           element={
             <ProtectedRoute>
-              <UpdateProfile />
+              <RouteErrorHandler><UpdateProfile /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
         <Route
           path="/cart"
-          element={<Cart />}
+          element={<RouteErrorHandler><Cart /></RouteErrorHandler>}
         />
         <Route
           path="/wishlist"
-          element={<WishlistPage />}
+          element={<RouteErrorHandler><WishlistPage /></RouteErrorHandler>}
         />
         <Route
           path="/checkout"
           element={
             <ProtectedRoute>
-              <Checkout />
+              <RouteErrorHandler><Checkout /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -132,7 +134,7 @@ function App() {
           path="/my-orders"
           element={
             <ProtectedRoute>
-              <OrderHistory />
+              <RouteErrorHandler><OrderHistory /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -140,7 +142,7 @@ function App() {
           path="/support"
           element={
             <ProtectedRoute>
-              <SupportTickets />
+              <RouteErrorHandler><SupportTickets /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -148,7 +150,7 @@ function App() {
           path="/my-addresses"
           element={
             <ProtectedRoute>
-              <MyAddresses />
+              <RouteErrorHandler><MyAddresses /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -157,7 +159,7 @@ function App() {
           path="/admin/dashboard"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminDashboard />
+              <RouteErrorHandler><AdminDashboard /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -165,7 +167,7 @@ function App() {
           path="/admin/brands"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminBrandPage />
+              <RouteErrorHandler><AdminBrandPage /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -173,7 +175,7 @@ function App() {
           path="/admin/bikes"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminBikeModelPage />
+              <RouteErrorHandler><AdminBikeModelPage /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -181,7 +183,7 @@ function App() {
           path="/admin/parts"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminPartPage />
+              <RouteErrorHandler><AdminPartPage /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -189,7 +191,7 @@ function App() {
           path="/admin/orders"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminOrders />
+              <RouteErrorHandler><AdminOrders /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -197,7 +199,7 @@ function App() {
           path="/admin/payment-settings"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminPaymentSettings />
+              <RouteErrorHandler><AdminPaymentSettings /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -205,7 +207,7 @@ function App() {
           path="/admin/inventory"
           element={
             <ProtectedRoute isAdmin={true}>
-              <InventoryPage />
+              <RouteErrorHandler><InventoryPage /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -213,7 +215,7 @@ function App() {
           path="/admin/customers"
           element={
             <ProtectedRoute isAdmin={true}>
-              <CustomerPage />
+              <RouteErrorHandler><CustomerPage /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -221,7 +223,7 @@ function App() {
           path="/admin/coupons"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminCoupons />
+              <RouteErrorHandler><AdminCoupons /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
@@ -229,10 +231,11 @@ function App() {
           path="/admin/support"
           element={
             <ProtectedRoute isAdmin={true}>
-              <AdminSupportTickets />
+              <RouteErrorHandler><AdminSupportTickets /></RouteErrorHandler>
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<RouteErrorHandler><NotFoundPage /></RouteErrorHandler>} />
         </Routes>
       </Suspense>
       </main>
