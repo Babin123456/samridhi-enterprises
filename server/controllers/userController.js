@@ -388,7 +388,7 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
       console.log(`\n=== FORGOT PASSWORD OTP FOR ${email} IS: ${otp} ===\n`);
     }
 
-    const otpHash = await bcryptjs.hash(String(otp), 10);
+    const otpHash = await bcryptjs.hash(String(otp), 12);
 
     const update = await UserModel.findByIdAndUpdate(user._id, {
       forgot_password_otp: otpHash,
@@ -625,7 +625,7 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
       return next(genericOtpError);
     }
 
-    const salt = await bcryptjs.genSalt(10);
+    const salt = await bcryptjs.genSalt(12);
     const hashPassword = await bcryptjs.hash(newPassword, salt);
 
     // OTP valid: update the password AND consume the OTP (single-use) together
@@ -695,7 +695,7 @@ export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
     if (mobile) updateFields.mobile = mobile;
 
     if (password) {
-      const salt = await bcryptjs.genSalt(10);
+      const salt = await bcryptjs.genSalt(12);
       updateFields.password = await bcryptjs.hash(password, salt);
     }
 
