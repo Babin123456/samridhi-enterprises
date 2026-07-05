@@ -6,11 +6,17 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { resendOtp, verifyEmailOtp } from "@/store/auth-slice/otpSlice";
 import { toast } from "react-toastify";
 import MetaData from "../../extras/MetaData";
+import useFormValidation, { validationRules as R } from "@/hooks/useFormValidation";
+
+const verifyFields = {
+  otp: { rules: [R.required("OTP is required"), R.otp()] },
+};
 
 const VerifyEmail = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const { errors, touched, validate, handleBlur, handleChange } = useFormValidation(verifyFields);
 
   const { loading, successMessage, verifyEmail } = useSelector(
     (state) => state.otp
@@ -36,8 +42,7 @@ const VerifyEmail = () => {
 
   const handleVerify = (e) => {
     e.preventDefault();
-    if (otp.length !== 6)
-      return toast.error("OTP must be 6 digits");
+    if (!validate({ otp })) return;
     dispatch(verifyEmailOtp({ email: user?.email, otp }));
   };
 
@@ -102,12 +107,16 @@ const VerifyEmail = () => {
               <motion.input
                 type="text"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => { setOtp(e.target.value); handleChange("otp", e.target.value, { otp: e.target.value }); }}
+                onBlur={() => handleBlur("otp", otp, { otp })}
                 maxLength="6"
                 placeholder="Enter OTP"
-                className="w-full p-3 sm:p-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-center text-lg sm:text-xl font-semibold tracking-wider transition-all duration-300"
+                className={`w-full p-3 sm:p-4 rounded-lg border bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-center text-lg sm:text-xl font-semibold tracking-wider transition-all duration-300 ${touched.otp && errors.otp ? "border-red-400" : "border-blue-400"}`}
                 whileFocus={{ scale: 1.02 }}
               />
+              {touched.otp && errors.otp && (
+                <p className="mt-1.5 text-xs text-red-500 text-center">{errors.otp}</p>
+              )}
             </motion.div>
             <motion.button
               variants={buttonVariants}

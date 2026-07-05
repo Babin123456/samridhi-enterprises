@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import useFormValidation, { validationRules as R } from "@/hooks/useFormValidation";
 
 const passwordRequirements = [
   { id: "length", label: "8+ characters", test: (pw) => pw.length >= 8 },
@@ -14,7 +15,13 @@ const passwordRequirements = [
   { id: "lowercase", label: "Lowercase letter (a-z)", test: (pw) => /[a-z]/.test(pw) },
   { id: "number", label: "Number (0-9)", test: (pw) => /\d/.test(pw) },
   { id: "special", label: "Special character", test: (pw) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
+  { id: "noSpace", label: "No leading/trailing spaces", test: (pw) => pw === pw.trim() },
 ];
+
+const resetFields = {
+  newPassword: { rules: [R.required("New password is required")] },
+  confirmPassword: { rules: [R.required("Please confirm your password"), R.match("New Password")] },
+};
 
 const ResetPassword = () => {
   const [email, setEmail] = useState("");
@@ -23,6 +30,7 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { errors, touched, validate, handleBlur, handleChange } = useFormValidation(resetFields);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -43,17 +51,10 @@ const ResetPassword = () => {
   }, [navigate]);
 
   const handleResetPassword = () => {
-    if (!email || !otp || !newPassword || !confirmPassword) {
-      toast.error("All fields are required!");
-      return;
-    }
+    if (!validate({ newPassword, confirmPassword })) return;
     const isAllRequirementsMet = passwordRequirements.every((req) => req.test(newPassword));
     if (!isAllRequirementsMet) {
       toast.error("Password does not meet complexity requirements!");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match!");
       return;
     }
     dispatch(resetPassword({ email, otp, newPassword, confirmPassword }));
@@ -162,8 +163,9 @@ const ResetPassword = () => {
                   type={showNewPassword ? "text" : "password"}
                   placeholder="New Password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3 sm:py-4 border border-blue-400 rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300"
+                  onChange={(e) => { setNewPassword(e.target.value); handleChange("newPassword", e.target.value, { newPassword: e.target.value, confirmPassword }); }}
+                  onBlur={() => handleBlur("newPassword", newPassword, { newPassword, confirmPassword })}
+                  className={`w-full pl-12 pr-12 py-3 sm:py-4 border rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300 ${touched.newPassword && errors.newPassword ? "border-red-400" : "border-blue-400"}`}
                   whileFocus={{ scale: 1.02 }}
                 />
                 <motion.div
@@ -218,10 +220,14 @@ const ResetPassword = () => {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm Password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-12 pr-12 py-3 sm:py-4 border border-blue-400 rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300"
+                  onChange={(e) => { setConfirmPassword(e.target.value); handleChange("confirmPassword", e.target.value, { newPassword, confirmPassword: e.target.value }); }}
+                  onBlur={() => handleBlur("confirmPassword", confirmPassword, { newPassword, confirmPassword })}
+                  className={`w-full pl-12 pr-12 py-3 sm:py-4 border rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300 ${touched.confirmPassword && errors.confirmPassword ? "border-red-400" : "border-blue-400"}`}
                   whileFocus={{ scale: 1.02 }}
                 />
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <p className="mt-1 text-xs text-red-500 pl-2">{errors.confirmPassword}</p>
+                )}
                 <motion.div
                   variants={iconVariants}
                   whileHover="hover"

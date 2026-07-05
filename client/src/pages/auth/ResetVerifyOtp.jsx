@@ -7,19 +7,23 @@ import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Key } from "lucide-react";
+import useFormValidation, { validationRules as R } from "@/hooks/useFormValidation";
+
+const verifyOtpFields = {
+  email: { rules: [R.required("Email is required"), R.email()] },
+  otp: { rules: [R.required("OTP is required"), R.otp()] },
+};
 
 const VerifyOtp = () => {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const { errors, touched, validate, handleBlur, handleChange } = useFormValidation(verifyOtpFields);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error, success } = useSelector((state) => state.auth);
 
   const handleVerifyOtp = () => {
-    if (!email || !otp) {
-      toast.error("Please enter both email and OTP!");
-      return;
-    }
+    if (!validate({ email, otp })) return;
     dispatch(verifyOtp({ email, otp }));
   };
 
@@ -111,10 +115,14 @@ const VerifyOtp = () => {
                   type="email"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 sm:py-4 border border-blue-400 rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300"
+                  onChange={(e) => { setEmail(e.target.value); handleChange("email", e.target.value, { email: e.target.value, otp }); }}
+                  onBlur={() => handleBlur("email", email, { email, otp })}
+                  className={`w-full pl-12 pr-4 py-3 sm:py-4 border rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300 ${touched.email && errors.email ? "border-red-400" : "border-blue-400"}`}
                   whileFocus={{ scale: 1.02 }}
                 />
+                {touched.email && errors.email && (
+                  <p className="mt-1 text-xs text-red-500 pl-2">{errors.email}</p>
+                )}
               </motion.div>
 
               <motion.div variants={itemVariants} className="relative">
@@ -129,10 +137,15 @@ const VerifyOtp = () => {
                   type="text"
                   placeholder="Enter OTP"
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 sm:py-4 border border-blue-400 rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300"
+                  onChange={(e) => { setOtp(e.target.value); handleChange("otp", e.target.value, { email, otp: e.target.value }); }}
+                  onBlur={() => handleBlur("otp", otp, { email, otp })}
+                  maxLength={6}
+                  className={`w-full pl-12 pr-4 py-3 sm:py-4 border rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300 ${touched.otp && errors.otp ? "border-red-400" : "border-blue-400"}`}
                   whileFocus={{ scale: 1.02 }}
                 />
+                {touched.otp && errors.otp && (
+                  <p className="mt-1 text-xs text-red-500 pl-2">{errors.otp}</p>
+                )}
               </motion.div>
             </div>
 

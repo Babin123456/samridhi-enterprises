@@ -7,18 +7,21 @@ import { useNavigate } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail } from "lucide-react";
+import useFormValidation, { validationRules as R } from "@/hooks/useFormValidation";
+
+const forgotFields = {
+  email: { rules: [R.required("Email is required"), R.email()] },
+};
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
+  const { errors, touched, validate, handleBlur, handleChange } = useFormValidation(forgotFields);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error, success } = useSelector((state) => state.auth);
 
   const handleForgotPassword = () => {
-    if (!email) {
-      toast.error("Please enter a valid email!");
-      return;
-    }
+    if (!validate({ email })) return;
     dispatch(forgotPassword(email));
   };
 
@@ -106,10 +109,14 @@ const ForgotPassword = () => {
                 type="email"
                 placeholder="Enter your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 sm:py-4 border border-blue-400 rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300"
+                onChange={(e) => { setEmail(e.target.value); handleChange("email", e.target.value, { email: e.target.value }); }}
+                onBlur={() => handleBlur("email", email, { email })}
+                className={`w-full pl-12 pr-4 py-3 sm:py-4 border rounded-lg bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/50 text-blue-800 text-sm sm:text-base transition-all duration-300 ${touched.email && errors.email ? "border-red-400" : "border-blue-400"}`}
                 whileFocus={{ scale: 1.02 }}
               />
+              {touched.email && errors.email && (
+                <p className="mt-1 text-xs text-red-500 pl-2">{errors.email}</p>
+              )}
             </motion.div>
 
             <motion.button

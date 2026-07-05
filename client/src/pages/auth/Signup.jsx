@@ -6,6 +6,7 @@ import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import { clearError, signupUser } from "@/store/auth-slice/user";
+import useFormValidation, { validationRules as R } from "@/hooks/useFormValidation";
 
 const passwordRequirements = [
   { id: "length", label: "8+ characters", test: (pw) => pw.length >= 8 },
@@ -13,13 +14,21 @@ const passwordRequirements = [
   { id: "lowercase", label: "Lowercase letter (a-z)", test: (pw) => /[a-z]/.test(pw) },
   { id: "number", label: "Number (0-9)", test: (pw) => /\d/.test(pw) },
   { id: "special", label: "Special character", test: (pw) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
+  { id: "noSpace", label: "No leading/trailing spaces", test: (pw) => pw === pw.trim() },
 ];
+
+const signupFields = {
+  name: { rules: [R.required("Name is required"), R.minLength(2)] },
+  email: { rules: [R.required("Email is required"), R.email()] },
+  password: { rules: [R.required("Password is required")] },
+};
 
 const SignUp = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const { errors, touched, validate, handleBlur, handleChange } = useFormValidation(signupFields);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -27,10 +36,7 @@ const SignUp = () => {
   useEffect(() => {}, [user, loading, navigate, dispatch]);
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !email || !password) {
-      toast.error("Please fill in all fields");
-      return;
-    }
+    if (!validate({ name, email, password })) return;
     const isAllRequirementsMet = passwordRequirements.every((req) => req.test(password));
     if (!isAllRequirementsMet) {
       toast.error("Password does not meet complexity requirements!");
@@ -41,7 +47,6 @@ const SignUp = () => {
       toast.success("Welcome to Samridhi Enterprises!");
       navigate("/login");
     } catch (err) { // eslint-disable-line no-unused-vars
-      // Error is handled by the useEffect listening to state.auth.error
     }
   };
 
@@ -115,10 +120,14 @@ const SignUp = () => {
               type="text"
               placeholder="Your Full Name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base"
+              onChange={(e) => { setName(e.target.value); handleChange("name", e.target.value, { name: e.target.value, email, password }); }}
+              onBlur={() => handleBlur("name", name, { name, email, password })}
+              className={`w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base ${touched.name && errors.name ? "border-red-400" : "border-blue-400"}`}
               whileFocus={{ scale: 1.02 }}
             />
+            {touched.name && errors.name && (
+              <p className="mt-1 text-xs text-red-500 pl-2">{errors.name}</p>
+            )}
           </div>
 
           <div className="mb-5 sm:mb-6 relative">
@@ -134,10 +143,14 @@ const SignUp = () => {
               type="email"
               placeholder="Your Email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base"
+              onChange={(e) => { setEmail(e.target.value); handleChange("email", e.target.value, { name, email: e.target.value, password }); }}
+              onBlur={() => handleBlur("email", email, { name, email, password })}
+              className={`w-full pl-12 pr-4 py-3 sm:py-4 rounded-lg border bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base ${touched.email && errors.email ? "border-red-400" : "border-blue-400"}`}
               whileFocus={{ scale: 1.02 }}
             />
+            {touched.email && errors.email && (
+              <p className="mt-1 text-xs text-red-500 pl-2">{errors.email}</p>
+            )}
           </div>
 
           <div className="mb-5 sm:mb-6 relative">
@@ -153,8 +166,9 @@ const SignUp = () => {
               type={showPassword ? "text" : "password"}
               placeholder="Create Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-12 py-3 sm:py-4 rounded-lg border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base"
+              onChange={(e) => { setPassword(e.target.value); handleChange("password", e.target.value, { name, email, password: e.target.value }); }}
+              onBlur={() => handleBlur("password", password, { name, email, password })}
+              className={`w-full pl-12 pr-12 py-3 sm:py-4 rounded-lg border bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-blue-500/70 text-blue-800 transition-all duration-300 text-sm sm:text-base ${touched.password && errors.password ? "border-red-400" : "border-blue-400"}`}
               whileFocus={{ scale: 1.02 }}
             />
             <motion.div
@@ -169,6 +183,9 @@ const SignUp = () => {
                 <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
               )}
             </motion.div>
+            {touched.password && errors.password && (
+              <p className="mt-1 text-xs text-red-500 pl-2">{errors.password}</p>
+            )}
           </div>
 
           <AnimatePresence>

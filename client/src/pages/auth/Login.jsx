@@ -7,11 +7,18 @@ import { getSingleDetail, loginUser } from "@/store/auth-slice/user";
 import { toast } from "react-toastify";
 import MetaData from "../../extras/MetaData";
 import { Eye, EyeOff, LockIcon, Mail } from "lucide-react";
+import useFormValidation, { validationRules as R } from "@/hooks/useFormValidation";
+
+const loginFields = {
+  email: { rules: [R.required("Email is required"), R.email()] },
+  password: { rules: [R.required("Password is required")] },
+};
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const { errors, touched, validate, handleBlur, handleChange } = useFormValidation(loginFields);
 
   const dispatch = useDispatch();
   const { loading, error, isAuthenticated } = useSelector(
@@ -25,10 +32,7 @@ const Login = () => {
 
   const loginSubmit = (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
-      return;
-    }
+    if (!validate({ email, password })) return;
     dispatch(loginUser({ email, password }));
   };
 
@@ -115,9 +119,13 @@ const Login = () => {
               type="email"
               placeholder="Your Email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base"
+              onChange={(e) => { setEmail(e.target.value); handleChange("email", e.target.value, { email: e.target.value, password }); }}
+              onBlur={() => handleBlur("email", email, { email, password })}
+              className={`w-full pl-12 pr-4 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base ${touched.email && errors.email ? "border-red-400" : "border-blue-400"}`}
             />
+            {touched.email && errors.email && (
+              <p className="mt-1.5 text-xs text-red-500 pl-2">{errors.email}</p>
+            )}
           </motion.div>
 
           <motion.div variants={inputVariants} className="relative group">
@@ -126,8 +134,9 @@ const Login = () => {
               type={showPassword ? "text" : "password"}
               placeholder="Your Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-12 pr-14 py-3 rounded-xl border border-blue-400 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base"
+              onChange={(e) => { setPassword(e.target.value); handleChange("password", e.target.value, { email, password: e.target.value }); }}
+              onBlur={() => handleBlur("password", password, { email, password })}
+              className={`w-full pl-12 pr-14 py-3 rounded-xl border bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500 placeholder-blue-500/50 text-blue-800 transition-all duration-300 text-sm sm:text-base ${touched.password && errors.password ? "border-red-400" : "border-blue-400"}`}
             />
             <motion.button
               type="button"
@@ -143,6 +152,9 @@ const Login = () => {
                 <Eye size={20} aria-hidden="true" />
               )}
             </motion.button>
+            {touched.password && errors.password && (
+              <p className="mt-1.5 text-xs text-red-500 pl-2">{errors.password}</p>
+            )}
           </motion.div>
 
           <motion.div
