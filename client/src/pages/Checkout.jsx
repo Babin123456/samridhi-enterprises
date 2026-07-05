@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -32,6 +32,7 @@ const Checkout = () => {
   const { addresses } = useSelector((state) => state.address);
   const [couponInput, setCouponInput] = useState("");
   const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [formErrors, setFormErrors] = useState({});
 
   const [form, setForm] = useState({
     fullName: "",
@@ -135,8 +136,30 @@ const Checkout = () => {
     setCouponInput("");
   };
 
+  const validateForm = () => {
+    const errs = {};
+    if (!form.fullName.trim()) errs.fullName = "Full name is required";
+    if (!form.phone.trim()) errs.phone = "Phone is required";
+    else if (!/^\d{10,15}$/.test(form.phone.replace(/\s/g, ""))) errs.phone = "Enter a valid phone number";
+    if (!form.addressLine.trim()) errs.addressLine = "Address is required";
+    if (!form.city.trim()) errs.city = "City is required";
+    if (!form.pincode.trim()) errs.pincode = "Pincode is required";
+    else if (!/^\d{5,6}$/.test(form.pincode.trim())) errs.pincode = "Enter a valid 6-digit pincode";
+    if (paymentMethod === "Online" && !screenshot) errs.screenshot = "Please upload payment screenshot";
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const handleScreenshot = (e) => {
@@ -144,20 +167,17 @@ const Checkout = () => {
     if (!file) return;
     setScreenshot(file);
     setScreenshotPreview(URL.createObjectURL(file));
+    if (formErrors.screenshot) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next.screenshot;
+        return next;
+      });
+    }
   };
 
   const handlePlaceOrder = () => {
-    // Required address fields
-    const required = ["fullName", "phone", "addressLine", "city", "pincode"];
-    const missing = required.filter((f) => !String(form[f]).trim());
-    if (missing.length > 0) {
-      toast.error("Please fill all required address fields");
-      return;
-    }
-    if (paymentMethod === "Online" && !screenshot) {
-      toast.error("Please upload your payment screenshot");
-      return;
-    }
+    if (!validateForm()) return;
 
     const fd = new FormData();
     fd.append("fullName", form.fullName);
@@ -177,7 +197,36 @@ const Checkout = () => {
     dispatch(createOrder(fd));
   };
 
-  if (loading) return <Loader />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 pt-28 pb-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-10" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white/80 rounded-3xl p-8 space-y-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+                  <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl col-span-2" />
+                </div>
+              </div>
+              <div className="bg-white/80 rounded-3xl p-8 space-y-4">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-40" />
+                <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+              </div>
+            </div>
+            <div className="bg-white/80 rounded-3xl p-8 space-y-4">
+              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32" />
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!cart || !cart.items || cart.items.length === 0) {
     return (
@@ -255,9 +304,10 @@ const Checkout = () => {
                     name="fullName"
                     value={form.fullName}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={`${inputClass} ${formErrors.fullName ? "border-red-400 ring-1 ring-red-200" : ""}`}
                     placeholder="Full name"
                   />
+                  {formErrors.fullName && <p className="mt-1 text-xs text-red-500">{formErrors.fullName}</p>}
                 </div>
                 <div className="sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -267,9 +317,10 @@ const Checkout = () => {
                     name="phone"
                     value={form.phone}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={`${inputClass} ${formErrors.phone ? "border-red-400 ring-1 ring-red-200" : ""}`}
                     placeholder="Phone number"
                   />
+                  {formErrors.phone && <p className="mt-1 text-xs text-red-500">{formErrors.phone}</p>}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -279,9 +330,10 @@ const Checkout = () => {
                     name="addressLine"
                     value={form.addressLine}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={`${inputClass} ${formErrors.addressLine ? "border-red-400 ring-1 ring-red-200" : ""}`}
                     placeholder="House no, street, area"
                   />
+                  {formErrors.addressLine && <p className="mt-1 text-xs text-red-500">{formErrors.addressLine}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -291,9 +343,10 @@ const Checkout = () => {
                     name="city"
                     value={form.city}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={`${inputClass} ${formErrors.city ? "border-red-400 ring-1 ring-red-200" : ""}`}
                     placeholder="City"
                   />
+                  {formErrors.city && <p className="mt-1 text-xs text-red-500">{formErrors.city}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -315,9 +368,10 @@ const Checkout = () => {
                     name="pincode"
                     value={form.pincode}
                     onChange={handleChange}
-                    className={inputClass}
+                    className={`${inputClass} ${formErrors.pincode ? "border-red-400 ring-1 ring-red-200" : ""}`}
                     placeholder="Pincode"
                   />
+                  {formErrors.pincode && <p className="mt-1 text-xs text-red-500">{formErrors.pincode}</p>}
                 </div>
               </div>
             </div>

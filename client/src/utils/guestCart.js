@@ -55,7 +55,12 @@ export const clearGuestCart = () => {
   localStorage.removeItem(GUEST_CART_KEY);
 };
 
+const isValidQuantity = (qty) => Number.isInteger(qty) && qty > 0;
+
 export const upsertGuestCartItem = async ({ partId, quantity }) => {
+  if (!partId) throw new Error("partId is required");
+  if (!isValidQuantity(quantity)) throw new Error("Quantity must be a positive integer");
+
   const guestCart = getGuestCart();
   const existingItemIndex = guestCart.items.findIndex(
     (item) => getItemPartId(item) === partId
@@ -67,15 +72,20 @@ export const upsertGuestCartItem = async ({ partId, quantity }) => {
     item.quantity += quantity;
     item.price = unitPrice * item.quantity;
   } else {
-    const partRes = await axiosInstance.get(`/api/parts/${partId}`);
-    const partData = partRes.data.part;
+    try {
+      const partRes = await axiosInstance.get(`/api/parts/${partId}`);
+      const partData = partRes.data.part;
+      if (!partData) throw new Error("Part not found");
 
-    guestCart.items.push({
-      part: partData,
-      quantity,
-      price: partData.price * quantity,
-      name: partData.name,
-    });
+      guestCart.items.push({
+        part: partData,
+        quantity,
+        price: partData.price * quantity,
+        name: partData.name,
+      });
+    } catch (err) {
+      throw new Error(err.response?.data?.message || err.message || "Failed to fetch part details");
+    }
   }
 
   saveGuestCart(guestCart);
