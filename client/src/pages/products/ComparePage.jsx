@@ -137,39 +137,44 @@ const ComparePage = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleShare}
               className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-4 py-2.5 rounded-xl transition"
+              aria-label="Share comparison"
             >
-              <Share2 className="w-4 h-4" /> Share
+              <Share2 className="w-4 h-4" aria-hidden="true" /> Share
             </button>
             <button
+              type="button"
               onClick={() => dispatch(clearCompare())}
               className="inline-flex items-center gap-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-700 font-medium px-4 py-2.5 rounded-xl transition"
+              aria-label="Clear all products from comparison"
             >
-              <Trash2 className="w-4 h-4" /> Clear all
+              <Trash2 className="w-4 h-4" aria-hidden="true" /> Clear all
             </button>
           </div>
         </motion.div>
 
         {/* Comparison table */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-x-auto">
-          <table className="w-full border-collapse min-w-[640px]">
+          <table className="w-full border-collapse min-w-[640px]" role="table" aria-label="Product comparison table">
             <thead>
               <tr>
-                <th className="sticky left-0 bg-gray-50 z-10 text-left text-sm font-semibold text-gray-500 px-4 py-4 w-40">
+                <th scope="col" className="sticky left-0 bg-gray-50 z-10 text-left text-sm font-semibold text-gray-500 px-4 py-4 w-40">
                   Product
                 </th>
                 {items.map((p) => (
-                  <th key={p._id} className="px-4 py-4 align-top min-w-[180px]">
+                  <th key={p._id} scope="col" className="px-4 py-4 align-top min-w-[180px]">
                     <div className="relative flex flex-col items-center text-center">
                       <button
+                        type="button"
                         onClick={() => dispatch(removeFromCompare(p._id))}
                         className="absolute -top-1 -right-1 p-1 rounded-full bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 transition"
-                        title="Remove"
+                        aria-label={`Remove ${p.name} from comparison`}
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4" aria-hidden="true" />
                       </button>
-                      <Link to={`/products/${p._id}`}>
+                      <Link to={`/products/${p._id}`} aria-label={`View ${p.name} details`}>
                         <img
                           src={p.image || "https://via.placeholder.com/150"}
                           alt={p.name}
@@ -179,6 +184,7 @@ const ComparePage = () => {
                       <Link
                         to={`/products/${p._id}`}
                         className="text-sm font-semibold text-gray-900 hover:text-blue-600 line-clamp-2 capitalize"
+                        aria-label={`View ${p.name} details`}
                       >
                         {p.name}
                       </Link>
@@ -193,9 +199,9 @@ const ComparePage = () => {
                   key={row.label}
                   className={idx % 2 === 0 ? "bg-white/60" : "bg-gray-50/60"}
                 >
-                  <td className="sticky left-0 bg-inherit z-10 text-sm font-medium text-gray-600 px-4 py-3">
+                  <th scope="row" className="sticky left-0 bg-inherit z-10 text-sm font-medium text-gray-600 px-4 py-3 text-left">
                     {row.label}
-                  </td>
+                  </th>
                   {items.map((p) => (
                     <td
                       key={p._id}
@@ -214,8 +220,9 @@ const ComparePage = () => {
                     <Link
                       to={`/products/${p._id}`}
                       className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+                      aria-label={`View product ${p.name}`}
                     >
-                      <ShoppingCart className="w-4 h-4" /> View
+                      <ShoppingCart className="w-4 h-4" aria-hidden="true" /> View
                     </Link>
                   </td>
                 ))}
