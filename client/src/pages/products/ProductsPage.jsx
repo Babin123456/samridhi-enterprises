@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import Loader from "../../extras/Loader";
+import useDebounce from "../../hooks/useDebounce";
 import { Link, useSearchParams } from "react-router-dom";
 import { GitCompare, Check, Heart } from "lucide-react";
 import SEO from "../../components/SEO";
@@ -91,6 +92,7 @@ const ProductsPage = () => {
   const [searchTerm, setSearchTerm] = useState(
     () => searchParams.get("search") || ""
   );
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterCompatibility, setFilterCompatibility] = useState([]);
   const [filterBrand, setFilterBrand] = useState("");
@@ -144,7 +146,7 @@ const ProductsPage = () => {
   // search, and the results now fit on 2 pages).
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterCategory, filterCompatibility, filterBrand, filterYear, filterEngine, filterStockStatus, sortBy, priceRange]);
+  }, [debouncedSearchTerm, filterCategory, filterCompatibility, filterBrand, filterYear, filterEngine, filterStockStatus, sortBy, priceRange]);
 
   const handleFilterCompatibilityChange = (modelId) => {
     setFilterCompatibility((prev) =>
@@ -234,9 +236,9 @@ const ProductsPage = () => {
   const sortedAndFilteredParts = parts
     .filter((part) => {
       const matchesSearch =
-        part.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        part.product_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (part.category || "").toLowerCase().includes(searchTerm.toLowerCase());
+        part.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        part.product_id.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (part.category || "").toLowerCase().includes(debouncedSearchTerm.toLowerCase());
       const matchesCategory = filterCategory
         ? part.category === filterCategory
         : true;

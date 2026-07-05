@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Search, X, Clock, TrendingUp } from "lucide-react";
+import { Search, X, Clock, TrendingUp, Loader2 } from "lucide-react";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import axiosInstance from "@/api";
@@ -9,6 +9,7 @@ import useSearchHistory from "@/hooks/useSearchHistory";
 
 const MAX_SUGGESTIONS = 8;
 const MAX_POPULAR = 6;
+const DEBOUNCE_MS = 300;
 
 /**
  * Global product search with recent history, dynamic suggestions and popular
@@ -28,11 +29,26 @@ const SearchBar = ({
   const { recent, addSearch, removeSearch, clearHistory } = useSearchHistory();
 
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [localCatalog, setLocalCatalog] = useState([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const fetchedRef = useRef(false);
   const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  // Debounce the raw query so expensive suggestion filtering only runs after
+  // the user stops typing.
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, DEBOUNCE_MS);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
 
   // Prefer the catalogue already in the store; otherwise use a locally fetched
   // copy. We deliberately avoid the shared `fetchParts` thunk so this never
@@ -43,11 +59,14 @@ const SearchBar = ({
     if (fetchedRef.current) return;
     if (parts && parts.length > 0) return;
     fetchedRef.current = true;
+    setCatalogLoading(true);
     try {
       const res = await axiosInstance.get("/api/parts/get");
       setLocalCatalog(res.data?.parts || []);
     } catch {
       // Suggestions gracefully fall back to recent searches only.
+    } finally {
+      setCatalogLoading(false);
     }
   };
 
@@ -80,7 +99,7 @@ const SearchBar = ({
   }, []);
 // Suggestions while typing: matching products (name/brand) first, then categories.
   const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return [];
 
     const productMatches = (catalog || [])
@@ -112,6 +131,8 @@ const SearchBar = ({
       ...recent.map((value) => ({ type: "recent", value })),
     ];
   }, [query, suggestions, popular, recent]);
+
+  const showLoader = catalogLoading && !parts?.length;
 
   // Reset the highlighted item whenever the visible list changes.
   useEffect(() => {
@@ -217,7 +238,20 @@ const SearchBar = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 max-h-96 overflow-y-auto"
+            role="region"
+            aria-label="Search suggestions"
           >
+            <div aria-live="polite" aria-atomic="true" className="sr-only">
+              {suggestions.length > 0
+                ? `${suggestions.length} suggestion${suggestions.length > 1 ? "s" : ""} available`
+                : ""}
+            </div>
+            {showLoader ? (
+              <div className="flex items-center justify-center gap-2 px-3 py-4 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading products...
+              </div>
+            ) : (
             <ul role="listbox" id={listboxId} className="space-y-1">
               {isEmptyQuery ? (
                 <>
@@ -368,6 +402,7 @@ const SearchBar = ({
                 </li>
               )}
             </ul>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

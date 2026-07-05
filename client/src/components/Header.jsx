@@ -227,7 +227,7 @@ function Header() {
           </motion.div>
 
           {/* ── Desktop search ── */}
-          <div className="hidden lg:flex flex-1 max-w-2xl mx-8">
+          <div className="hidden lg:flex flex-1 max-w-2xl mx-8" role="search" aria-label="Search products">
             <SearchBar variant="desktop" />
           </div>
 
@@ -492,6 +492,8 @@ function Header() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 className="relative"
+                role="search"
+                aria-label="Search products"
               >
                 <SearchBar variant="mobile" />
               </motion.div>

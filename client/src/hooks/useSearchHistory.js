@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 const STORAGE_KEY = "recentSearches";
-const MAX_ITEMS = 8;
+export const SEARCH_HISTORY_MAX = 8;
+const MAX_ITEMS = SEARCH_HISTORY_MAX;
 
 // Safely read the persisted search history from localStorage.
 const readHistory = () => {
@@ -69,5 +70,5 @@ export default function useSearchHistory() {
     setRecent([]);
   }, []);
 
-  return { recent, addSearch, removeSearch, clearHistory };
+  return { recent, addSearch, removeSearch, clearHistory, maxItems: MAX_ITEMS };
 }
