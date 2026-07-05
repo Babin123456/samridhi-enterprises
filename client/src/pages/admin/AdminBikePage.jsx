@@ -35,6 +35,7 @@ export default function AdminBikeModelPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedIdToDelete, setSelectedIdToDelete] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [errors, setErrors] = useState({});
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -57,11 +58,15 @@ export default function AdminBikeModelPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name) return toast.warn("Model name is required!");
-    if (!brandId) return toast.warn("Please select a brand!");
+    const fieldErrors = {};
+    if (!name.trim()) fieldErrors.name = "Model name is required";
+    if (!brandId) fieldErrors.brandId = "Please select a brand";
     if (yearStart && yearEnd && Number(yearStart) > Number(yearEnd)) {
-      return toast.warn("Start year cannot be later than end year!");
+      fieldErrors.yearEnd = "End year must be after start year";
     }
+    if (!editId && !image) fieldErrors.image = "Image is required";
+    setErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) return;
 
     const formData = new FormData();
     formData.append("name", name);
@@ -138,6 +143,7 @@ export default function AdminBikeModelPage() {
     setEditId(null);
     setImagePreview(null);
     setShowForm(false);
+    setErrors({});
   };
 
   const sortedBrands = brands
@@ -298,10 +304,11 @@ export default function AdminBikeModelPage() {
                           <input
                             type="text"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: "" })); }}
                             placeholder="Enter model name"
-                            className="w-full px-4 py-3 bg-slate-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300"
+                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300 ${errors.name ? "border-red-400" : "border-blue-200"}`}
                           />
+                          {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -309,8 +316,8 @@ export default function AdminBikeModelPage() {
                           </label>
                           <select
                             value={brandId}
-                            onChange={(e) => setBrandId(e.target.value)}
-                            className="w-full px-4 py-3 bg-slate-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300 appearance-none cursor-pointer"
+                            onChange={(e) => { setBrandId(e.target.value); setErrors((prev) => ({ ...prev, brandId: "" })); }}
+                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300 appearance-none cursor-pointer ${errors.brandId ? "border-red-400" : "border-blue-200"}`}
                           >
                             <option value="">Select brand</option>
                             {sortedBrands.map((b) => (
@@ -349,11 +356,12 @@ export default function AdminBikeModelPage() {
                           <input
                             type="number"
                             value={yearEnd}
-                            onChange={(e) => setYearEnd(e.target.value)}
+                            onChange={(e) => { setYearEnd(e.target.value); setErrors((prev) => ({ ...prev, yearEnd: "" })); }}
                             placeholder="e.g. 2024"
                             min="1900"
-                            className="w-full px-4 py-3 bg-slate-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300"
+                            className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300 ${errors.yearEnd ? "border-red-400" : "border-blue-200"}`}
                           />
+                          {errors.yearEnd && <p className="mt-1 text-sm text-red-500">{errors.yearEnd}</p>}
                         </div>
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -380,9 +388,10 @@ export default function AdminBikeModelPage() {
                           key={editId || "I"}
                           type="file"
                           accept="image/*"
-                          onChange={handleImageChange}
-                          className="w-full px-4 py-3 bg-slate-50 border border-blue-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-100 file:text-blue-700 file:cursor-pointer hover:file:bg-blue-200"
+                          onChange={(e) => { handleImageChange(e); setErrors((prev) => ({ ...prev, image: "" })); }}
+                          className={`w-full px-4 py-3 bg-slate-50 border rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400/30 focus:border-blue-400 transition-all duration-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-100 file:text-blue-700 file:cursor-pointer hover:file:bg-blue-200 ${errors.image ? "border-red-400" : "border-blue-200"}`}
                         />
+                        {errors.image && <p className="mt-1 text-sm text-red-500">{errors.image}</p>}
                       </div>
 
                       {imagePreview && (

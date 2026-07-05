@@ -97,6 +97,7 @@ const AdminPartPage = () => {
   const [filterStockStatus, setFilterStockStatus] = useState("");
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
   // eslint-disable-next-line no-unused-vars
   const [viewMode, setViewMode] = useState("grid");
   const [sortBy, setSortBy] = useState("name");
@@ -179,13 +180,14 @@ const AdminPartPage = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     const { product_id, name, price, category } = formData;
-
-    if (!product_id || !name || !price || !category) {
-      return toast.warn("Product ID, Name, Price, and Category are required!");
-    }
-    if (!editId && images.length === 0) {
-      return toast.warn("At least one image is required!");
-    }
+    const fieldErrors = {};
+    if (!product_id.trim()) fieldErrors.product_id = "Product ID is required";
+    if (!name.trim()) fieldErrors.name = "Part name is required";
+    if (!price || Number(price) <= 0) fieldErrors.price = "Valid price is required";
+    if (!category) fieldErrors.category = "Category is required";
+    if (!editId && images.length === 0) fieldErrors.image = "At least one image is required";
+    setFormErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) return;
 
     const data = new FormData();
     Object.keys(formData).forEach((key) => {
@@ -369,10 +371,11 @@ const AdminPartPage = () => {
                       type="text"
                       name="product_id"
                       value={formData.product_id}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      onChange={(e) => { handleInputChange(e); setFormErrors((prev) => ({ ...prev, product_id: "" })); }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formErrors.product_id ? "border-red-400" : "border-gray-300"}`}
                       placeholder="Enter product ID"
                     />
+                    {formErrors.product_id && <p className="mt-1 text-xs text-red-500">{formErrors.product_id}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -382,10 +385,11 @@ const AdminPartPage = () => {
                       type="text"
                       name="name"
                       value={formData.name}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      onChange={(e) => { handleInputChange(e); setFormErrors((prev) => ({ ...prev, name: "" })); }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formErrors.name ? "border-red-400" : "border-gray-300"}`}
                       placeholder="Enter part name"
                     />
+                    {formErrors.name && <p className="mt-1 text-xs text-red-500">{formErrors.name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -395,12 +399,13 @@ const AdminPartPage = () => {
                       type="number"
                       name="price"
                       value={formData.price}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      onChange={(e) => { handleInputChange(e); setFormErrors((prev) => ({ ...prev, price: "" })); }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formErrors.price ? "border-red-400" : "border-gray-300"}`}
                       placeholder="0.00"
                       min="0"
                       step="0.01"
                     />
+                    {formErrors.price && <p className="mt-1 text-xs text-red-500">{formErrors.price}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -422,8 +427,8 @@ const AdminPartPage = () => {
                     <select
                       name="category"
                       value={formData.category}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm cursor-pointer"
+                      onChange={(e) => { handleInputChange(e); setFormErrors((prev) => ({ ...prev, category: "" })); }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm cursor-pointer ${formErrors.category ? "border-red-400" : "border-gray-300"}`}
                     >
                       <option value="">Select Category</option>
                       {categories.map((cat) => (
@@ -432,6 +437,7 @@ const AdminPartPage = () => {
                         </option>
                       ))}
                     </select>
+                    {formErrors.category && <p className="mt-1 text-xs text-red-500">{formErrors.category}</p>}
                   </div>
                   <div className="relative" ref={dropdownRef}>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -506,9 +512,10 @@ const AdminPartPage = () => {
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={handleImageChange}
+                    onChange={(e) => { handleImageChange(e); setFormErrors((prev) => ({ ...prev, image: "" })); }}
                     className="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
+                  {formErrors.image && <p className="mt-1 text-xs text-red-500">{formErrors.image}</p>}
                   {imagePreviews.length > 0 && (
                     <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <AnimatePresence>

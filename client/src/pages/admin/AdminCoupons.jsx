@@ -65,6 +65,7 @@ const AdminCoupons = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
     dispatch(getAllCoupons());
@@ -126,15 +127,21 @@ const AdminCoupons = () => {
 
   const handleSubmit = () => {
     setFormError("");
+    setFieldErrors({});
     const code = form.code.trim().toUpperCase();
-    if (!code) return setFormError("Coupon code is required");
+    const fe = {};
+    if (!code) fe.code = "Coupon code is required";
 
     const discountValue = Number(form.discountValue);
     if (Number.isNaN(discountValue) || discountValue < 0) {
-      return setFormError("Discount value must be a non-negative number");
+      fe.discountValue = "Discount value must be a non-negative number";
     }
     if (form.discountType === "PERCENTAGE" && discountValue > 100) {
-      return setFormError("A percentage discount cannot exceed 100");
+      fe.discountValue = "A percentage discount cannot exceed 100";
+    }
+    if (Object.keys(fe).length > 0) {
+      setFieldErrors(fe);
+      return;
     }
 
     const payload = {
@@ -346,10 +353,11 @@ const AdminCoupons = () => {
                 <input
                   name="code"
                   value={form.code}
-                  onChange={handleChange}
+                  onChange={(e) => { handleChange(e); setFieldErrors((prev) => ({ ...prev, code: "" })); }}
                   placeholder="e.g. SAVE20"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 uppercase focus:ring-2 focus:ring-indigo-400 outline-none"
+                  className={`w-full rounded-lg border px-3 py-2 uppercase focus:ring-2 focus:ring-indigo-400 outline-none ${fieldErrors.code ? "border-red-400" : "border-gray-300"}`}
                 />
+                {fieldErrors.code && <p className="mt-1 text-xs text-red-500">{fieldErrors.code}</p>}
               </div>
 
               <div>
@@ -397,9 +405,10 @@ const AdminCoupons = () => {
                     type="number"
                     min="0"
                     value={form.discountValue}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                    onChange={(e) => { handleChange(e); setFieldErrors((prev) => ({ ...prev, discountValue: "" })); }}
+                    className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none ${fieldErrors.discountValue ? "border-red-400" : "border-gray-300"}`}
                   />
+                  {fieldErrors.discountValue && <p className="mt-1 text-xs text-red-500">{fieldErrors.discountValue}</p>}
                 </div>
               </div>
 
