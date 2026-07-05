@@ -661,10 +661,6 @@ export const resetPassword = catchAsyncErrors(async (req, res, next) => {
 
 export const getUserDetails = catchAsyncErrors(async (req, res, next) => {
   try {
-    console.log("Checking User model:", UserModel);
-
-    console.log("User ID:", req.user?._id);
-
     const user = await UserModel.findById(req.user._id);
 
     if (!user) {

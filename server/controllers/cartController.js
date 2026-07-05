@@ -259,12 +259,9 @@ export const clearCart = catchAsyncErrors(async (req, res, next) => {
   const cart = await Cart.findOne({ user: req.user._id });
   if (!cart) return next(new ErrorHandler("Cart not found", 404));
 
-  console.log('Before clearing cart:', JSON.stringify(cart, null, 2));
   cart.items = [];
   cart.total = 0;
 
   await cart.save();
-  const clearedCart = await Cart.findOne({ user: req.user._id }).populate("items.part", "name price images stock");
-  console.log('Cleared cart:', JSON.stringify(clearedCart, null, 2));
-  res.status(200).json({ success: true, cart: clearedCart });
+  res.status(200).json({ success: true, cart });
 });
