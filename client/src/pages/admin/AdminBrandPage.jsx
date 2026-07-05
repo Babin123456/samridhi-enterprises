@@ -33,19 +33,28 @@ export default function AdminBrandPage() {
     if (error) toast.error(error);
   }, [success, error]);
 
+  const [formErrors, setFormErrors] = useState({});
+
+  const validateForm = () => {
+    const errs = {};
+    if (!name.trim()) errs.name = "Brand name is required";
+    else if (name.trim().length < 2) errs.name = "Name must be at least 2 characters";
+    if (!editId && !image) errs.image = "Brand image is required";
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (!name) return toast.warn("Brand name is required!");
+    if (!validateForm()) return;
 
     const formData = new FormData();
-    formData.append("name", name);
+    formData.append("name", name.trim());
 
     if (editId) {
       if (image) formData.append("image", image);
       dispatch(updateBrand({ id: editId, formData }));
     } else {
-      if (!image) return toast.warn("Image is required!");
       formData.append("image", image);
       dispatch(addBrand(formData));
     }
@@ -54,6 +63,7 @@ export default function AdminBrandPage() {
     setImage(null);
     setEditId(null);
     setImagePreview(null);
+    setFormErrors({});
   };
 
   const handleEdit = (brand) => {

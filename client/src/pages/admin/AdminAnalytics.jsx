@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { adminGetSalesAnalytics } from "@/store/order/orderSlice";
 import { adminGetRecommendationAnalytics } from "@/store/product/partsSlice";
-import Loader from "../../extras/Loader";
+import { getStockBadge } from "../../utils/stockStatus";
 
 // Indian-rupee formatter shared across the revenue figures on this page.
 const formatINR = (n) =>

@@ -46,6 +46,17 @@ const quickLinks = [
   { to: "/admin/payment-settings", label: "Payment Settings", icon: CreditCard },
 ];
 
+const SkeletonCard = () => (
+  <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 animate-pulse">
+    <div className="flex items-center justify-between mb-4">
+      <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-xl" />
+      <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+    </div>
+    <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-lg mb-2" />
+    <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+  </div>
+);
+
 const AdminDashboard = () => {
   const dispatch = useDispatch();
   const { analytics, loading } = useSelector((state) => state.order);
@@ -53,6 +64,17 @@ const AdminDashboard = () => {
   useEffect(() => {
     dispatch(adminGetDashboardAnalytics());
   }, [dispatch]);
+
+  if (loading && !analytics) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      </div>
+    );
+  }
 
   // Cards are derived from the live analytics payload — never hardcoded. While
   // the request is in flight (or on first load) values fall back to 0 so the

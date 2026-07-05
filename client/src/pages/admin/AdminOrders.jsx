@@ -9,7 +9,7 @@ import {
   adminUpdateOrderStatus,
   clearOrderError,
 } from "../../store/order/orderSlice";
-import Loader from "../../extras/Loader";
+import { getStockBadge } from "../../utils/stockStatus";
 
 const STATUS_OPTIONS = [
   "",
@@ -117,7 +117,27 @@ const AdminOrders = () => {
     });
   };
 
-  if (loading && (!adminOrders || adminOrders.length === 0)) return <Loader />;
+  if (loading && (!adminOrders || adminOrders.length === 0)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pt-28 pb-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
+          <div className="h-8 w-48 bg-gray-200 rounded-lg mb-8" />
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-xl p-6 shadow-sm space-y-3">
+                <div className="flex justify-between">
+                  <div className="h-5 bg-gray-200 rounded w-1/3" />
+                  <div className="h-5 bg-gray-200 rounded w-20" />
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-2/3" />
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 pt-28 pb-16">
