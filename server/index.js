@@ -40,8 +40,9 @@ if (process.env.TRUST_PROXY) {
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  process.env.FRONTEND_WWW_URL,
   "http://localhost:5173",
-];
+].filter(Boolean);
 
 app.use(
   cors({
