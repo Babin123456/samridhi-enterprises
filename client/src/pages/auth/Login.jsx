@@ -111,7 +111,11 @@ const Login = () => {
         <motion.form variants={itemVariants} onSubmit={loginSubmit} className="space-y-6">
           <motion.div variants={inputVariants} className="relative group">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 group-hover:text-blue-500 transition-colors duration-300" size={20} />
+            <label htmlFor="login-email" className="sr-only">
+              Email
+            </label>
             <input
+              id="login-email"
               type="email"
               placeholder="Your Email"
               value={email}
@@ -122,7 +126,11 @@ const Login = () => {
 
           <motion.div variants={inputVariants} className="relative group">
             <LockIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 group-hover:text-blue-500 transition-colors duration-300" size={20} />
+            <label htmlFor="login-password" className="sr-only">
+              Password
+            </label>
             <input
+              id="login-password"
               type={showPassword ? "text" : "password"}
               placeholder="Your Password"
               value={password}

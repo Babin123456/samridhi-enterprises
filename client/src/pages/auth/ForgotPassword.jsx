@@ -102,7 +102,11 @@ const ForgotPassword = () => {
               >
                 <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
               </motion.div>
+              <label htmlFor="forgot-email" className="sr-only">
+                Email
+              </label>
               <motion.input
+                id="forgot-email"
                 type="email"
                 placeholder="Enter your email"
                 value={email}

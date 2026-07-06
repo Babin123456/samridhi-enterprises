@@ -20,76 +20,7 @@ import { Heart } from "lucide-react";
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import SEO from "../../components/SEO";
-import RecommendationRow from "../../components/RecommendationRow";
-import { fetchParts } from "../../store/product/partsSlice";
-
-
-const ProductCarouselSection = ({ title, description, iconPath, products, delay = 0.4 }) => {
-  if (!products || products.length === 0) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay }}
-      className="mt-12 bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden"
-    >
-      <div className="p-8 lg:p-12">
-        <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-3">
-          <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
-          </svg>
-          {title}
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-8">{description}</p>
-
-        <div className="flex gap-5 overflow-x-auto pb-4 -mx-2 px-2">
-          {products.map((item) => (
-            <Link key={item._id} to={`/products/${item._id}`} className="flex-shrink-0 w-56">
-              <motion.div
-                whileHover={{ y: -4 }}
-                transition={{ type: "spring", stiffness: 300 }}
-                className="h-full bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200 overflow-hidden"
-              >
-                <div className="relative">
-                  <img
-                    src={item.images?.[0]?.url || "/images/placeholder.jpg"}
-                    alt={item.name || "Product"}
-                    loading="lazy"
-                    className="w-full h-40 object-cover"
-                  />
-                  {item.bestseller && (
-                    <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      Bestseller
-                    </span>
-                  )}
-                </div>
-                <div className="p-4 space-y-2">
-                  <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 line-clamp-2 capitalize min-h-[3rem]">
-                    {item.name || "Unknown Product"}
-                  </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                      ₹{item.price?.toLocaleString() || "0"}
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStockBadge(item.stock).badgeCls}`}>
-                      {getStockBadge(item.stock).label}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                    {item.category}
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
+import RecentlyViewed, { RECENTLY_VIEWED_KEY } from "../../components/RecentlyViewed";
 
 const SingleProduct = () => {
   const { id } = useParams();
@@ -194,6 +125,36 @@ const SingleProduct = () => {
     if (productId) dispatch(trackRecommendationClick(productId));
   };
 
+  const addToRecentlyViewed = (product) => {
+    if (!product?._id) return;
+
+    try {
+      const storedItems = JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || "[]");
+      const normalizedItems = Array.isArray(storedItems) ? storedItems : [];
+
+      const updatedItems = [
+        {
+          id: product._id,
+          name: product.name,
+          image: product.images?.[0]?.url || "",
+          price: product.price,
+        },
+        ...normalizedItems.filter((item) => item.id !== product._id),
+      ].slice(0, 5);
+
+      localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(updatedItems));
+      window.dispatchEvent(new Event("recently-viewed-updated"));
+    } catch (error) {
+      console.error("Failed to save recently viewed products", error);
+    }
+  };
+
+  useEffect(() => {
+    if (part) {
+      addToRecentlyViewed(part);
+    }
+  }, [part]);
+
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       toast.error("Please log in to add items to cart");
@@ -280,9 +241,24 @@ const SingleProduct = () => {
     });
   };
 
-  // Delegate to the shared utility — thresholds and labels live in
-  // client/src/utils/stockStatus.js (getCustomerStockStatus).
-  const getStockStatus = () => getCustomerStockStatus(part.stock);
+  
+  const getStockStatus = () => {
+    if (part.stock === 0)
+      return { text: "Out of Stock", color: "text-red-500", bg: "bg-red-50" };
+    if (part.stock <= 5)
+      return {
+        text: "Only few left!",
+        color: "text-orange-500",
+        bg: "bg-orange-50",
+      };
+    if (part.stock <= 15)
+      return {
+        text: "Limited Stock",
+        color: "text-yellow-600",
+        bg: "bg-yellow-50",
+      };
+    return { text: "In Stock", color: "text-emerald-500", bg: "bg-emerald-50" };
+  };
 
   const handleQuantityChange = (e) => {
     const value = e.target.value;
@@ -361,6 +337,8 @@ const SingleProduct = () => {
   }
 
   if (!part) return null;
+
+
 
   const stockStatus = getStockStatus();
 
@@ -939,6 +917,8 @@ const SingleProduct = () => {
                 </p>
               </motion.div>
             )}
+
+            <RecentlyViewed />
           </div>
         </motion.div>
       </div>
