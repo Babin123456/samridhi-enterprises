@@ -96,8 +96,12 @@ app.use("/api/support", supportTicketRouter)
 app.use("/api/address", addressRouter)
 app.use("/api/garage", garageRouter)
 
+app.use("/api/garage", garageRouter)
+
+
 // Error middleware should be registered AFTER routes so it can catch downstream errors.
 app.use(errorMiddleware);
+
 
 connectDB().then(() => {
   app.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
