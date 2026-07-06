@@ -9,6 +9,7 @@ import generatedOtp from "../utils/generatedOtp.js";
 import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
 import { logAudit } from "../utils/auditLogger.js";
+import { validatePassword } from "../utils/validatePassword.js";
 
 const OTP_MODE = process.env.OTP_MODE || "production";
 
