@@ -33,7 +33,6 @@ const Footer = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [hoveredSection, setHoveredSection] = useState(null);
   const prefersReducedMotion = useReducedMotion();
-  const [year] = useState(() => new Date().getFullYear());
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
@@ -379,28 +378,18 @@ const Footer = () => {
           </div>
 
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 1 }}
-            className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-700"
-          >
-            <div className="flex flex-col sm:flex-row justify-between items-center space-y-6 sm:space-y-0">
-              <p className="text-gray-500 dark:text-gray-400 text-sm text-center sm:text-left">
-                &copy; {year} Samridhi Enterprises. All rights
-                reserved.
-              </p>
-              <motion.button
-                type="button"
-                onClick={scrollToTop}
-                aria-label="Scroll to top"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-blue-400/50 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              >
-                <ArrowUp className="w-5 h-5" aria-hidden="true" />
-              </motion.button>
-            </div>
-          </motion.div>
+  initial={{ opacity: 0, y: 30 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 1, delay: 1 }}
+  className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-700"
+>
+  <div className="flex justify-center items-center">
+    <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+      © {new Date().getFullYear()} Samridhi Enterprises. All rights
+      reserved.
+    </p>
+  </div>
+</motion.div>
         </div>
       </motion.div>
 

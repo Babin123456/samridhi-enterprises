@@ -1,48 +1,29 @@
 @import "tailwindcss";
 
+/* Tailwind v4 defaults `dark:` to prefers-color-scheme. This switches it to a
+   class strategy: the ThemeProvider toggles the `dark` class on <html>, so
+   `dark:` utilities respond to that class. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Base canvas + a smooth transition when switching themes. Page containers add
+   their own `dark:` backgrounds; this themes the root canvas and native UI. */
 :root {
   color-scheme: light;
 }
-
 html.dark {
   color-scheme: dark;
 }
-
 body {
-  background-color: #ffffff;
-  color: #111827;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
-
 html.dark body {
   background-color: #0b1220;
   color: #e5e7eb;
 }
 
-*,
-*::before,
-*::after {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-  transition-duration: 200ms;
-  transition-timing-function: ease;
-}
-
-input,
-textarea,
-select,
-button,
-a,
-img,
-svg,
-video {
-  transition-duration: 150ms;
-}
-
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
-
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
