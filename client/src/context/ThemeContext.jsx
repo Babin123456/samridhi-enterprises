@@ -1,18 +1,18 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 
 const ThemeContext = createContext({
   theme: "light",
   toggleTheme: () => {},
   setTheme: () => {},
+  isTransitioning: false,
 });
 
-// Resolve the starting theme: an explicit saved choice wins; otherwise fall
-// back to the OS preference. (Mirrored by the inline anti-flash script in
-// index.html so the page paints in the right theme before React mounts.)
+const THEME_STORAGE_KEY = "theme";
+
 const getInitialTheme = () => {
   if (typeof window === "undefined") return "light";
   try {
-    const stored = localStorage.getItem("theme");
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
     if (stored === "light" || stored === "dark") return stored;
     return window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
@@ -24,31 +24,37 @@ const getInitialTheme = () => {
 
 export const ThemeProvider = ({ children }) => {
   const [theme, setThemeState] = useState(getInitialTheme);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const timeoutRef = useRef(null);
 
-  // Reflect the active theme on the <html> element whenever it changes.
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  // Explicit user choice — persisted, so it overrides the OS preference.
   const setTheme = (next) => {
     try {
-      localStorage.setItem("theme", next);
+      localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {
-      // storage unavailable (private mode / quota) — in-memory state still works
+      // storage unavailable
     }
+
+    setIsTransitioning(true);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setIsTransitioning(false);
+    }, 300);
+
     setThemeState(next);
   };
 
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
-  // While the user has not made an explicit choice, follow the OS theme live.
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e) => {
       let stored = null;
       try {
-        stored = localStorage.getItem("theme");
+        stored = localStorage.getItem(THEME_STORAGE_KEY);
       } catch {
         stored = null;
       }
@@ -58,14 +64,19 @@ export const ThemeProvider = ({ children }) => {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme, isTransitioning }}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => useContext(ThemeContext);
 
 export default ThemeContext;
