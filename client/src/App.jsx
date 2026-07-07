@@ -12,6 +12,7 @@ import SupportAssistant from "./components/SupportAssistant";
 import CompareTray from "./components/CompareTray";
 import Loader from "./extras/Loader";
 import SessionTimeoutHandler from "./components/SessionTimeoutHandler";
+import ScrollToTop from "./extras/ScrollToTop";
 
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -75,6 +76,7 @@ function App() {
         pauseOnHover
       />
       <Header />
+      <ScrollToTop />
 
       <main id="main-content" tabIndex={-1}>
       <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader /></div>}>
