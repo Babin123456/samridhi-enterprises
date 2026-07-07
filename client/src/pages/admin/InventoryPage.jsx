@@ -14,6 +14,7 @@ import {
 import { toast } from "react-toastify";
 import { adminGetInventory, clearOrderError } from "@/store/order/orderSlice";
 import Loader from "../../extras/Loader";
+import EmptyState from "../../components/EmptyState";
 
 // Indian-rupee formatter shared by the stock-value figures on this page.
 const formatINR = (n) =>
@@ -287,9 +288,11 @@ const InventoryPage = () => {
         </table>
 
         {filteredInventory.length === 0 && !loading && (
-          <div className="p-8 text-center text-sm text-gray-500">
-            No products to display.
-          </div>
+          <EmptyState
+            icon="Package"
+            title="No products found"
+            message={inventory.length > 0 ? "No products match your current filter. Try adjusting your search criteria." : "Your inventory is empty. Add some products to get started."}
+          />
         )}
       </div>
 

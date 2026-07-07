@@ -75,7 +75,7 @@ const VerifyOtp = () => {
 
   return (
     <>
-      <MetaData title="Verify OTP - Samridhi Enterprises" />
+      <MetaData title="Verify OTP | Samridhi Enterprises" description="Verify your password reset OTP to regain access to your Samridhi Enterprises account." keywords="verify OTP, password reset, Samridhi Enterprises, bike parts account" />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-100 px-4 sm:px-6 lg:px-8">
         <AnimatePresence>
           <motion.div

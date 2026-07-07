@@ -114,11 +114,21 @@ const userSchema = new mongoose.Schema(
 );
 
 
-// Hash password before saving
+// Hash password before saving (on .save() calls)
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 
-  this.password = await bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 12);
+});
+
+// Safety net: hash password if updated via findOneAndUpdate / findByIdAndUpdate.
+// This prevents future changes that bypass .save() from persisting plaintext passwords.
+userSchema.pre("findOneAndUpdate", async function () {
+  const update = this.getUpdate();
+  if (!update || !update.password) return;
+
+  update.password = await bcrypt.hash(update.password, 12);
+  this.setUpdate(update);
 });
 
 userSchema.methods.getJWTToken = function () {

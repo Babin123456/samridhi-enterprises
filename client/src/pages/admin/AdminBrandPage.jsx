@@ -9,7 +9,7 @@ import {
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import ConfirmationModal from "../../extras/ConfirmationModel";
+import ConfirmationModal from "../../extras/ConfirmationModal";
 
 export default function AdminBrandPage() {
   const dispatch = useDispatch();
@@ -23,6 +23,7 @@ export default function AdminBrandPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedIdToDelete, setSelectedIdToDelete] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     dispatch(fetchBrands());
@@ -36,7 +37,11 @@ export default function AdminBrandPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!name) return toast.warn("Brand name is required!");
+    const fieldErrors = {};
+    if (!name.trim()) fieldErrors.name = "Brand name is required";
+    if (!editId && !image) fieldErrors.image = "Image is required";
+    setErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) return;
 
     const formData = new FormData();
     formData.append("name", name);
@@ -45,7 +50,6 @@ export default function AdminBrandPage() {
       if (image) formData.append("image", image);
       dispatch(updateBrand({ id: editId, formData }));
     } else {
-      if (!image) return toast.warn("Image is required!");
       formData.append("image", image);
       dispatch(addBrand(formData));
     }
@@ -93,6 +97,7 @@ export default function AdminBrandPage() {
     setImage(null);
     setEditId(null);
     setImagePreview(null);
+    setErrors({});
   };
 
   const containerVariants = {
@@ -214,9 +219,12 @@ export default function AdminBrandPage() {
                     type="text"
                     placeholder="Enter brand name..."
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-6 py-4 border-2 border-blue-200 rounded-2xl focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all duration-300 bg-white/70 backdrop-blur-sm text-blue-900 placeholder-blue-300"
+                    onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: "" })); }}
+                    className={`w-full px-6 py-4 border-2 rounded-2xl focus:outline-none focus:ring-4 transition-all duration-300 bg-white/70 backdrop-blur-sm text-blue-900 placeholder-blue-300 ${
+                      errors.name ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-blue-200 focus:border-blue-400 focus:ring-blue-100"
+                    }`}
                   />
+                  {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
                 </motion.div>
 
                 <motion.div
@@ -232,10 +240,13 @@ export default function AdminBrandPage() {
                       key={editId || "new"}
                       type="file"
                       accept="image/*"
-                      onChange={handleImageChange}
-                      className="w-full px-6 py-4 border-2 border-dashed border-blue-300 rounded-2xl focus:outline-none focus:border-blue-400 transition-all duration-300 bg-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-blue-100 file:text-blue-600 file:font-semibold hover:file:bg-blue-200"
+                      onChange={(e) => { handleImageChange(e); setErrors((prev) => ({ ...prev, image: "" })); }}
+                      className={`w-full px-6 py-4 border-2 border-dashed rounded-2xl focus:outline-none focus:border-blue-400 transition-all duration-300 bg-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-blue-100 file:text-blue-600 file:font-semibold hover:file:bg-blue-200 ${
+                        errors.image ? "border-red-400" : "border-blue-300"
+                      }`}
                     />
                   </div>
+                  {errors.image && <p className="mt-1 text-sm text-red-500">{errors.image}</p>}
                   
                   <AnimatePresence>
                     {imagePreview && (

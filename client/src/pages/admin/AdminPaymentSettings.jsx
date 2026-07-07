@@ -22,6 +22,7 @@ const AdminPaymentSettings = () => {
   const [qrPreview, setQrPreview] = useState("");
   const [notifyAdmins, setNotifyAdmins] = useState(true);
   const [notifyTickets, setNotifyTickets] = useState(true);
+  const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
     dispatch(getPaymentSettings());
@@ -59,8 +60,13 @@ const AdminPaymentSettings = () => {
   };
 
   const handleSave = () => {
-    // The notification toggle makes every save meaningful, so we no longer
-    // block when UPI/QR are empty — an admin may simply be flipping it.
+    const fieldErrors = {};
+    if (upiId.trim() && !/^[\w.-]+@[\w.-]+$/.test(upiId.trim())) {
+      fieldErrors.upiId = "Invalid UPI ID format (e.g. name@bank)";
+    }
+    setFormErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) return;
+
     const fd = new FormData();
     fd.append("upiId", upiId);
     fd.append("notifyAdminsOnNewOrder", notifyAdmins);
@@ -89,10 +95,11 @@ const AdminPaymentSettings = () => {
             </label>
             <input
               value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              onChange={(e) => { setUpiId(e.target.value); setFormErrors((prev) => ({ ...prev, upiId: "" })); }}
+              className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white ${formErrors.upiId ? "border-red-400" : "border-gray-200"}`}
               placeholder="e.g. samridhi@upi"
             />
+            {formErrors.upiId && <p className="mt-1 text-sm text-red-500">{formErrors.upiId}</p>}
           </div>
 
           <div>

@@ -90,9 +90,9 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4">
       <MetaData
-        title="Login | Samridhi Enterprises - Elegant Access"
-        description="Sign in to your Samridhi Enterprises account with elegance. Track your precious orders and unlock exclusive collections."
-        keywords="Samridhi Enterprises login, luxury login, premium account access, secure shopping"
+        title="Login | Samridhi Enterprises"
+        description="Sign in to your Samridhi Enterprises account to track orders, manage your garage, and shop for premium bike parts."
+        keywords="Samridhi Enterprises login, bike parts account, motorcycle parts sign in, auto parts login"
       />
 
       <motion.div

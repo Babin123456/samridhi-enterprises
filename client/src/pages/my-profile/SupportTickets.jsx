@@ -21,6 +21,7 @@ import {
   clearSupportError,
 } from "@/store/order/supportSlice";
 import Loader from "../../extras/Loader";
+import EmptyState from "../../components/EmptyState";
 
 const CATEGORIES = ["Order", "Payment", "Product", "Shipping", "Account", "Other"];
 const PRIORITIES = ["Low", "Medium", "High"];
@@ -186,18 +187,12 @@ const SupportTickets = () => {
             {/* My tickets */}
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Your tickets</h2>
             {tickets.length === 0 ? (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow border border-white/20 p-12 text-center text-gray-500">
-                <Inbox className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                You have no support tickets yet.
-                <div className="mt-4">
-                  <button
-                    onClick={() => setView("new")}
-                    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-xl transition"
-                  >
-                    <Plus className="w-4 h-4" /> Create a ticket
-                  </button>
-                </div>
-              </div>
+              <EmptyState
+                icon="Inbox"
+                title="No support tickets yet"
+                message="Have an issue or question? Create a support ticket and our team will help you out."
+                action={{ label: "Create a ticket", onClick: () => setView("new") }}
+              />
             ) : (
               <div className="space-y-3">
                 {tickets.map((t) => (

@@ -13,8 +13,8 @@ const sendEmail = async ({ sendTo, subject, html }) => {
       "https://api.brevo.com/v3/smtp/email",
       {
         sender: {
-          email: "sahilrv191@gmail.com",
-          name: "Samridhi Enterprises",
+          email: process.env.BREVO_SENDER_EMAIL || "noreply@samridhienterprises.com",
+          name: process.env.BREVO_SENDER_NAME || "Samridhi Enterprises",
         },
         to: [{ email: sendTo }],
         subject: subject,
@@ -35,7 +35,6 @@ const sendEmail = async ({ sendTo, subject, html }) => {
       "❌ Error sending email:",
       error.response?.data || error.message
     );
-    console.log("BREVO_API_KEY:", process.env.BREVO_API_KEY);
 
     return false;
   }

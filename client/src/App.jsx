@@ -12,6 +12,7 @@ import SupportAssistant from "./components/SupportAssistant";
 import CompareTray from "./components/CompareTray";
 import Loader from "./extras/Loader";
 import SessionTimeoutHandler from "./components/SessionTimeoutHandler";
+import ScrollToTop from "./extras/ScrollToTop";
 
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -43,6 +44,7 @@ const AdminPaymentSettings = lazy(() => import("./pages/admin/AdminPaymentSettin
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const CustomerPage = lazy(() => import("./pages/admin/CustomerPage"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const NotFoundPage = lazy(() => import("./extras/NotFoundPage"));
 
 function App() {
   const dispatch = useDispatch();
@@ -74,9 +76,10 @@ function App() {
         pauseOnHover
       />
       <Header />
+      <ScrollToTop />
 
       <main id="main-content" tabIndex={-1}>
-      <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader /></div>}>
+      <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader fullScreen={false} /></div>}>
         <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
@@ -233,6 +236,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
       </main>

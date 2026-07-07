@@ -71,7 +71,7 @@ const ForgotPassword = () => {
 
   return (
     <>
-      <MetaData title="Forgot Password - Samridhi Enterprises" />
+      <MetaData title="Forgot Password | Samridhi Enterprises" description="Reset your Samridhi Enterprises account password securely. Enter your registered email to receive a password reset OTP." keywords="forgot password, reset password, bike parts account recovery, Samridhi Enterprises password" />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-100 px-4 sm:px-6 lg:px-8">
         <AnimatePresence>
           <motion.div

@@ -10,6 +10,7 @@ import {
   clearOrderError,
 } from "../../store/order/orderSlice";
 import Loader from "../../extras/Loader";
+import EmptyState from "../../components/EmptyState";
 
 const STATUS_OPTIONS = [
   "",
@@ -140,9 +141,11 @@ const AdminOrders = () => {
         </div>
 
         {!adminOrders || adminOrders.length === 0 ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-10 text-center text-gray-600">
-            No orders found for this filter.
-          </div>
+          <EmptyState
+            icon="Inbox"
+            title="No orders found"
+            message={filter ? `No orders with status "${filter}". Try a different filter.` : "No orders have been placed yet. They will appear here once customers start ordering."}
+          />
         ) : (
           <div className="space-y-6">
             {adminOrders.map((order) => (

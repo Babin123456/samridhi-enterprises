@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
 import { getSingleDetail } from "@/store/auth-slice/user";
-import MediData from "../../extras/MetaData";
+import MetaData from "../../extras/MetaData";
 import Loader from "../../extras/Loader";
 
 const MyProfile = () => {
@@ -59,7 +59,7 @@ const MyProfile = () => {
       initial="hidden"
       animate="visible"
     >
-      <MediData title="My Profile | Samridhi Enterprises" />
+      <MetaData title="My Profile | Samridhi Enterprises" />
       <div className="max-w-6xl mx-auto mb-20 mt-20">
         {user?.hasWeakPassword && (
           <motion.div

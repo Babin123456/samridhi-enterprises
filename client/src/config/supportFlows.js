@@ -20,7 +20,7 @@
 // contact options. Anything else is treated as a normal navigation via `next`.
 
 export const SUPPORT_CONTACT = {
-  email: "email@gmail.com",
+  email: "support@samridhienterprises.com",
   phone: "+919999999999",
   phoneLabel: "+91 99999 99999",
 };

@@ -1,0 +1,147 @@
+import assert from "node:assert/strict";
+import mongoose from "mongoose";
+import connectDB from "../config/connectDB.js";
+import { registerUser, resetPassword, updatePassword } from "../controllers/userController.js";
+import UserModel from "../models/userModel.js";
+import ErrorHandler from "../utils/errorHandler.js";
+
+// Helper to call controller and return a promise that resolves when next or res.json is called
+const callController = (controller, req) => {
+  return new Promise((resolve) => {
+    const res = {
+      statusCode: 200,
+      body: null,
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json(data) {
+        this.body = data;
+        resolve({ res: this, err: null });
+        return this;
+      },
+    };
+    const next = (err) => {
+      resolve({ res, err });
+    };
+    controller(req, res, next);
+  });
+};
+
+const runTests = async () => {
+  console.log("Connecting to in-memory database...");
+  await connectDB();
+
+  try {
+    // ----------------------------------------------------
+    // Test 1: registerUser with invalid password
+    // ----------------------------------------------------
+    console.log("Running Test 1: registerUser with invalid password...");
+    const req1 = {
+      body: {
+        name: "Test User",
+        email: "test@example.com",
+        password: "weak", // fails length constraint
+      },
+    };
+    const { err: error1 } = await callController(registerUser, req1);
+    assert.ok(error1 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error1.statusCode, 400, "Should return 400 Bad Request");
+    assert.ok(error1.message.includes("Password must be between"), "Should have correct length validation message");
+
+    // ----------------------------------------------------
+    // Test 2: registerUser with password missing special char
+    // ----------------------------------------------------
+    console.log("Running Test 2: registerUser with password missing special character...");
+    const req2 = {
+      body: {
+        name: "Test User",
+        email: "test@example.com",
+        password: "NoSpecialChar123", // missing special char
+      },
+    };
+    const { err: error2 } = await callController(registerUser, req2);
+    assert.ok(error2 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error2.statusCode, 400, "Should return 400 Bad Request");
+    assert.equal(error2.message, "Password must contain at least one special character.", "Should have correct complexity validation message");
+    // Note: our validatePassword checks uppercase first, then lowercase, then digit, then special char.
+    // "NoSpecialChar123" has uppercase (N), lowercase (o...), digit (123), but missing special char.
+    // Wait, let's verify if "NoSpecialChar123" has uppercase. Yes.
+    // Wait, the message for missing special character is "Password must contain at least one special character."
+    // Let's make sure our assert matches whatever is returned. Let's see what is returned:
+    // If we pass "NoSpecialChar123", it has uppercase, lowercase, digit, but no special. So it should return "Password must contain at least one special character."
+    // Wait, in Test 2's assertion, why did it pass before? Because error2.message was indeed "Password must contain at least one special character."
+    // Let's assert on the exact message:
+    assert.equal(error2.message, "Password must contain at least one special character.");
+
+    // ----------------------------------------------------
+    // Test 3: resetPassword with invalid password
+    // ----------------------------------------------------
+    console.log("Running Test 3: resetPassword with invalid password...");
+    const req3 = {
+      body: {
+        email: "test@example.com",
+        otp: "123456",
+        newPassword: "weak",
+        confirmPassword: "weak",
+      },
+    };
+    const { err: error3 } = await callController(resetPassword, req3);
+    assert.ok(error3 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error3.statusCode, 400, "Should return 400 Bad Request");
+    assert.ok(error3.message.includes("Password must be between"), "Should validate password before processing OTP");
+
+    // ----------------------------------------------------
+    // Test 4: resetPassword with mismatched passwords
+    // ----------------------------------------------------
+    console.log("Running Test 4: resetPassword with mismatched passwords...");
+    const req4 = {
+      body: {
+        email: "test@example.com",
+        otp: "123456",
+        newPassword: "ValidPassword123!",
+        confirmPassword: "DifferentPassword123!",
+      },
+    };
+    const { err: error4 } = await callController(resetPassword, req4);
+    assert.ok(error4 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error4.statusCode, 400, "Should return 400 Bad Request");
+    assert.equal(error4.message, "New password and confirm password must be the same.", "Should return mismatch error");
+
+    // ----------------------------------------------------
+    // Test 5: updatePassword with invalid password
+    // ----------------------------------------------------
+    console.log("Running Test 5: updatePassword with invalid password...");
+    const dummyUser = await UserModel.create({
+      name: "Dummy User",
+      email: "dummy@example.com",
+      password: "OldPassword123!",
+      verifyEmail: true,
+    });
+
+    const req5 = {
+      user: { id: dummyUser._id },
+      body: {
+        oldPassword: "OldPassword123!",
+        newPassword: "weak",
+        confirmPassword: "weak",
+      },
+    };
+    const { err: error5 } = await callController(updatePassword, req5);
+    assert.ok(error5 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error5.statusCode, 400, "Should return 400 Bad Request");
+    assert.ok(error5.message.includes("Password must be between"), "Should validate new password structure");
+
+    console.log("All password reset/validation tests passed successfully.");
+  } finally {
+    console.log("Disconnecting from database...");
+    await mongoose.disconnect();
+  }
+};
+
+runTests().then(() => {
+  process.exit(0);
+}).catch((err) => {
+  console.error("Test failed:", err);
+  process.exit(1);
+});

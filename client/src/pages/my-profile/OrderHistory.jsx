@@ -11,7 +11,7 @@ import {
   clearOrderError,
 } from "../../store/order/orderSlice";
 import Loader from "../../extras/Loader";
-import ConfirmationModal from "../../extras/ConfirmationModel";
+import ConfirmationModal from "../../extras/ConfirmationModal";
 
 // The fulfilment stages a normal order moves through, in order. Used by the
 // customer-facing tracker so a buyer can see how far along their order is.

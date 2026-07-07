@@ -110,7 +110,7 @@ const ResetPassword = () => {
 
   return (
     <>
-      <MetaData title="Reset Password - Samridhi Enterprises" />
+      <MetaData title="Reset Password | Samridhi Enterprises" description="Set a new password for your Samridhi Enterprises account. Choose a strong, unique password." keywords="reset password, new password, Samridhi Enterprises, bike parts account security" />
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-100 px-4 sm:px-6 lg:px-8">
         <AnimatePresence>
           <motion.div

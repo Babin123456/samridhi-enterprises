@@ -16,6 +16,7 @@ import {
 import { toast } from "react-toastify";
 import { getAllUsers, updateUserRole } from "@/store/auth-slice/user";
 import Loader from "../../extras/Loader";
+import EmptyState from "../../components/EmptyState";
 
 // Status → colour-coded pill. The User model allows: Active, Warning, Suspended.
 const statusPill = (status) => {
@@ -337,9 +338,11 @@ const CustomerPage = () => {
         </table>
 
         {list.length === 0 && !loading && (
-          <div className="p-8 text-center text-sm text-gray-500">
-            No customers to display.
-          </div>
+          <EmptyState
+            icon="Inbox"
+            title="No customers found"
+            message={searchTerm ? `No customers match "${searchTerm}". Try a different search term.` : "No customers have registered yet."}
+          />
         )}
       </div>
 
