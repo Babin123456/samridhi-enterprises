@@ -21,6 +21,7 @@ import {
   clearSupportError,
 } from "@/store/order/supportSlice";
 import Loader from "../../extras/Loader";
+import EmptyState from "../../components/EmptyState";
 
 const STATUSES = ["Open", "In Progress", "Resolved", "Closed"];
 const CATEGORIES = ["Order", "Payment", "Product", "Shipping", "Account", "Other"];
@@ -193,10 +194,11 @@ const AdminSupportTickets = () => {
 
             {/* Ticket list */}
             {tickets.length === 0 ? (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow border border-white/20 p-12 text-center text-gray-500">
-                <Inbox className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                No tickets match the current filters.
-              </div>
+              <EmptyState
+                icon="Inbox"
+                title="No tickets found"
+                message={tickets.length > 0 ? "No tickets match the current filters. Try adjusting your search criteria." : "No support tickets have been raised yet."}
+              />
             ) : (
               <div className="space-y-3">
                 {tickets.map((t) => (
