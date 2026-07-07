@@ -12,7 +12,7 @@ import { fetchBrands } from "../../store/product/brandSlice";
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import ConfirmationModal from "../../extras/ConfirmationModel";
+import ConfirmationModal from "../../extras/ConfirmationModal";
 import Loader from "../../extras/Loader";
 
 export default function AdminBikeModelPage() {

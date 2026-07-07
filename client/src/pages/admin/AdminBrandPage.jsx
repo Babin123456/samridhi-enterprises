@@ -9,7 +9,7 @@ import {
 import { toast } from "react-toastify";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import ConfirmationModal from "../../extras/ConfirmationModel";
+import ConfirmationModal from "../../extras/ConfirmationModal";
 
 export default function AdminBrandPage() {
   const dispatch = useDispatch();
