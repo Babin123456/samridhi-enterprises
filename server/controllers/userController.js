@@ -10,6 +10,8 @@ import sendToken from "../utils/jwtToken.js";
 import forgotPasswordTemplate from "../template/forgotPasswordTemplate.js";
 import { logAudit } from "../utils/auditLogger.js";
 import { isOtpDevMode } from "../utils/validateEnv.js";
+import validatePassword from "../utils/validatePassword.js";
+
 
 const shouldLogOtp = isOtpDevMode();
 
@@ -421,108 +423,100 @@ export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
 });
 
 export const verifyOtp = catchAsyncErrors(async (req, res, next) => {
-  try {
-    const { email, otp } = req.body;
+  const { email, otp } = req.body;
 
-    if (!email || !otp) {
-      return next(new ErrorHandler("Please provide both email and otp.", 400));
-    }
+  if (!email || !otp) {
+    return next(new ErrorHandler("Please provide both email and otp.", 400));
+  }
 
-    const maxAttempts = Number(process.env.FORGOT_PASSWORD_MAX_ATTEMPTS) || 5;
-    const lockMinutes =
-      Number(process.env.FORGOT_PASSWORD_LOCK_MINUTES) || 15;
+  const maxAttempts = Number(process.env.FORGOT_PASSWORD_MAX_ATTEMPTS) || 5;
+  const lockMinutes =
+    Number(process.env.FORGOT_PASSWORD_LOCK_MINUTES) || 15;
 
-    const user = await UserModel.findOne({ email });
+  const user = await UserModel.findOne({ email });
 
-    // Generic error message to avoid leaking whether the email exists
-    // or whether the OTP is correct.
-    const genericOtpError = new ErrorHandler(
-      "Invalid or expired OTP. Please request a new one.",
-      400
+  // Generic error message to avoid leaking whether the email exists
+  // or whether the OTP is correct.
+  const genericOtpError = new ErrorHandler(
+    "Invalid or expired OTP. Please request a new one.",
+    400
+  );
+
+  if (!user) {
+    return next(genericOtpError);
+  }
+
+  // Lockout check
+  if (
+    user.forgot_password_lockUntil &&
+    user.forgot_password_lockUntil.getTime() > Date.now()
+  ) {
+    return next(
+      new ErrorHandler("Too many OTP attempts. Please try again later.", 429)
     );
+  }
 
-    if (!user) {
-      return next(genericOtpError);
+  // Expiry check
+  if (!user.forgot_password_expiry) {
+    return next(genericOtpError);
+  }
+
+  const expiry = new Date(user.forgot_password_expiry).getTime();
+
+  if (Number.isNaN(expiry) || expiry < Date.now()) {
+    // OTP expired: reset attempt state to avoid keeping user locked forever.
+    user.forgot_password_failedAttempts = 0;
+    user.forgot_password_lockUntil = null;
+    await user.save();
+    return next(genericOtpError);
+  }
+
+  const isOtpValid = await bcryptjs.compare(
+    String(otp),
+    user.forgot_password_otp || ""
+  );
+
+  if (!isOtpValid) {
+    user.forgot_password_failedAttempts =
+      (user.forgot_password_failedAttempts || 0) + 1;
+
+    if (user.forgot_password_failedAttempts >= maxAttempts) {
+      user.forgot_password_lockUntil = new Date(
+        Date.now() + lockMinutes * 60 * 1000
+      );
+      user.forgot_password_failedAttempts = 0;
     }
 
-    // Lockout check
-    if (
-      user.forgot_password_lockUntil &&
-      user.forgot_password_lockUntil.getTime() > Date.now()
-    ) {
+    await user.save();
+
+    if (user.forgot_password_lockUntil) {
       return next(
-        new ErrorHandler("Too many OTP attempts. Please try again later.", 429)
+        new ErrorHandler(
+          "Too many OTP attempts. Please try again later.",
+          429
+        )
       );
     }
 
-    // Expiry check
-    if (!user.forgot_password_expiry) {
-      return next(genericOtpError);
-    }
-
-    const expiry = new Date(user.forgot_password_expiry).getTime();
-
-    if (Number.isNaN(expiry) || expiry < Date.now()) {
-      // OTP expired: reset attempt state to avoid keeping user locked forever.
-      user.forgot_password_failedAttempts = 0;
-      user.forgot_password_lockUntil = null;
-      await user.save();
-      return next(genericOtpError);
-    }
-
-    const isOtpValid = await bcryptjs.compare(
-      String(otp),
-      user.forgot_password_otp || ""
-    );
-
-    if (!isOtpValid) {
-      user.forgot_password_failedAttempts =
-        (user.forgot_password_failedAttempts || 0) + 1;
-
-      if (user.forgot_password_failedAttempts >= maxAttempts) {
-        user.forgot_password_lockUntil = new Date(
-          Date.now() + lockMinutes * 60 * 1000
-        );
-        user.forgot_password_failedAttempts = 0;
-      }
-
-      await user.save();
-
-      if (user.forgot_password_lockUntil) {
-        return next(
-          new ErrorHandler(
-            "Too many OTP attempts. Please try again later.",
-            429
-          )
-        );
-      }
-
-      return next(genericOtpError);
-    }
-
-    // OTP is correct. Reset only the brute-force counters here; do NOT clear the
-    // OTP itself — it must survive so resetPassword can consume it (single-use)
-    // when the new password is submitted. verifyOtp is a UX correctness check;
-    // the real single-use consumption happens at reset-password.
-    await UserModel.findByIdAndUpdate(user._id, {
-      forgot_password_failedAttempts: 0,
-      forgot_password_lockUntil: null,
-    });
-
-    return res.json({
-      message: "OTP verified successfully.",
-      error: false,
-      success: true,
-    });
-  } catch (error) {
-    return next(
-      new ErrorHandler(
-        error.message || "An error occurred while verifying OTP.",
-        500
-      )
-    );
+    return next(genericOtpError);
   }
+
+  // OTP is correct. Reset only the brute-force counters here; do NOT clear the
+  // OTP itself — it must survive so resetPassword can consume it (single-use)
+  // when the new password is submitted. verifyOtp is a UX correctness check;
+  // the real single-use consumption happens at reset-password.
+  await UserModel.findByIdAndUpdate(user._id, {
+    forgot_password_failedAttempts: 0,
+    forgot_password_lockUntil: null,
+  });
+
+  return res.json({
+    message: "OTP verified successfully.",
+    error: false,
+    success: true,
+  });
 });
+
 
 export const resetPassword = catchAsyncErrors(async (req, res, next) => {
 
