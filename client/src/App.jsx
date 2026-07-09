@@ -44,6 +44,7 @@ const AdminPaymentSettings = lazy(() => import("./pages/admin/AdminPaymentSettin
 const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
 const CustomerPage = lazy(() => import("./pages/admin/CustomerPage"));
 const AdminCoupons = lazy(() => import("./pages/admin/AdminCoupons"));
+const DesignSystemPreview = lazy(() => import("./pages/DesignSystemPreview"));
 const NotFoundPage = lazy(() => import("./extras/NotFoundPage"));
 
 function App() {
@@ -235,7 +236,16 @@ function App() {
               <AdminSupportTickets />
             </ProtectedRoute>
           }
-        />
+        />  
+          <Route path="/" element={<Home />} />
+          <Route path="/" element={<DesignSystemPreview />} />
+        <Route
+          path="/design-system"
+          element={
+            <DesignSystemPreview />
+          }
+          />
+
         <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
