@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import connectDB from "../config/connectDB.js";
-import { registerUser, resetPassword, updatePassword, verifyOtp, verifyEmailOtp, resendOtp } from "../controllers/userController.js";
+import { registerUser, resetPassword, updatePassword, verifyOtp, verifyEmailOtp, resendOtp, updateUserDetails } from "../controllers/userController.js";
 import UserModel from "../models/userModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
@@ -316,7 +316,24 @@ const runTests = async () => {
     assert.notEqual(updatedResendUser.login_otp, emailOtpHashed, "Should set a new hashed OTP");
     assert.ok(updatedResendUser.login_otp.startsWith("$2a$") || updatedResendUser.login_otp.startsWith("$2b$"), "Should be a bcrypt hash");
 
-    console.log("All password reset/validation/OTP/Email verification tests passed successfully.");
+    // ----------------------------------------------------
+    // Test 13: updateUserDetails response schema consistency
+    // ----------------------------------------------------
+    console.log("Running Test 13: updateUserDetails response schema consistency...");
+    const req13 = {
+      user: { _id: emailUser._id },
+      body: {
+        mobile: "9988776655",
+      },
+    };
+    const { res: res13, err: error13 } = await callController(updateUserDetails, req13);
+    assert.equal(error13, null, "Should update user details successfully");
+    assert.equal(res13.body.success, true);
+    assert.equal(res13.body.message, "User details updated successfully");
+    assert.ok(res13.body.user, "Should contain the user key");
+    assert.equal(res13.body.data, undefined, "Should NOT contain the duplicate data key");
+
+    console.log("All password reset/validation/OTP/Email verification/User details tests passed successfully.");
   } finally {
     console.log("Disconnecting from database...");
     await mongoose.disconnect();
