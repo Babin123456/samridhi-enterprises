@@ -154,6 +154,11 @@ const Checkout = () => {
       toast.error("Please fill all required address fields");
       return;
     }
+
+    if (!/^\d{10}$/.test(form.phone)) {
+      toast.error("Please enter a valid 10-digit phone number");
+      return;
+    }
     if (paymentMethod === "Online" && !screenshot) {
       toast.error("Please upload your payment screenshot");
       return;
