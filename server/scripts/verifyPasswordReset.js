@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import connectDB from "../config/connectDB.js";
-import { registerUser, resetPassword, updatePassword, verifyOtp } from "../controllers/userController.js";
+import { registerUser, resetPassword, updatePassword, verifyOtp, verifyEmailOtp, resendOtp } from "../controllers/userController.js";
 import UserModel from "../models/userModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
@@ -29,6 +29,7 @@ const callController = (controller, req) => {
 };
 
 const runTests = async () => {
+  process.env.BREVO_API_KEY = "dummy";
   console.log("Connecting to in-memory database...");
   await connectDB();
 
@@ -211,7 +212,111 @@ const runTests = async () => {
     assert.equal(error8.statusCode, 429, "Should return 429 Too Many Requests");
     assert.equal(error8.message, "Too many OTP attempts. Please try again later.");
 
-    console.log("All password reset/validation/OTP tests passed successfully.");
+    // ----------------------------------------------------
+    // Test 9: verifyEmailOtp success flow
+    // ----------------------------------------------------
+    console.log("Running Test 9: verifyEmailOtp success flow...");
+    const emailOtpVal = "112233";
+    const emailOtpHashed = await bcryptjs.hash(emailOtpVal, 12);
+    const emailUser = await UserModel.create({
+      name: "Email User",
+      email: "emailuser@example.com",
+      password: "ValidPassword123!",
+      verifyEmail: false,
+      login_otp: emailOtpHashed,
+      login_expiry: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    const req9 = {
+      body: {
+        email: "emailuser@example.com",
+        otp: emailOtpVal,
+      },
+    };
+
+    const { res: res9, err: error9 } = await callController(verifyEmailOtp, req9);
+    assert.equal(error9, null, "Should not return error on success");
+    assert.equal(res9.body.success, true);
+    assert.equal(res9.body.message, "Email verified successfully.");
+
+    const updatedEmailUser = await UserModel.findById(emailUser._id);
+    assert.equal(updatedEmailUser.verifyEmail, true, "Should verify user email");
+    assert.equal(updatedEmailUser.login_otp, null, "Should clear login_otp");
+    assert.equal(updatedEmailUser.login_expiry, null, "Should clear login_expiry");
+
+    // ----------------------------------------------------
+    // Test 10: verifyEmailOtp invalid OTP flow
+    // ----------------------------------------------------
+    console.log("Running Test 10: verifyEmailOtp invalid OTP flow...");
+    const emailUser2 = await UserModel.create({
+      name: "Email User 2",
+      email: "emailuser2@example.com",
+      password: "ValidPassword123!",
+      verifyEmail: false,
+      login_otp: emailOtpHashed,
+      login_expiry: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    const req10 = {
+      body: {
+        email: "emailuser2@example.com",
+        otp: "wrong_otp",
+      },
+    };
+
+    const { err: error10 } = await callController(verifyEmailOtp, req10);
+    assert.ok(error10 instanceof ErrorHandler);
+    assert.equal(error10.statusCode, 401);
+    assert.equal(error10.message, "Invalid OTP");
+
+    // ----------------------------------------------------
+    // Test 11: verifyEmailOtp expired OTP flow
+    // ----------------------------------------------------
+    console.log("Running Test 11: verifyEmailOtp expired OTP flow...");
+    const expiredUser = await UserModel.create({
+      name: "Expired User",
+      email: "expired@example.com",
+      password: "ValidPassword123!",
+      verifyEmail: false,
+      login_otp: emailOtpHashed,
+      login_expiry: new Date(Date.now() - 5000), // expired 5 seconds ago
+    });
+
+    const req11 = {
+      body: {
+        email: "expired@example.com",
+        otp: emailOtpVal,
+      },
+    };
+
+    const { err: error11 } = await callController(verifyEmailOtp, req11);
+    assert.ok(error11 instanceof ErrorHandler);
+    assert.equal(error11.statusCode, 410);
+    assert.ok(error11.message.includes("OTP expired. A new OTP has been sent"));
+
+    const updatedExpiredUser = await UserModel.findById(expiredUser._id);
+    assert.notEqual(updatedExpiredUser.login_otp, emailOtpHashed, "Should hash the newly generated OTP");
+    assert.notEqual(updatedExpiredUser.login_otp, null);
+    assert.ok(updatedExpiredUser.login_expiry > new Date());
+
+    // ----------------------------------------------------
+    // Test 12: resendOtp hashes the new OTP
+    // ----------------------------------------------------
+    console.log("Running Test 12: resendOtp hashes the new OTP...");
+    const req12 = {
+      body: {
+        email: "emailuser2@example.com",
+      },
+    };
+    const { res: res12, err: error12 } = await callController(resendOtp, req12);
+    assert.equal(error12, null);
+    assert.equal(res12.body.success, true);
+
+    const updatedResendUser = await UserModel.findById(emailUser2._id);
+    assert.notEqual(updatedResendUser.login_otp, emailOtpHashed, "Should set a new hashed OTP");
+    assert.ok(updatedResendUser.login_otp.startsWith("$2a$") || updatedResendUser.login_otp.startsWith("$2b$"), "Should be a bcrypt hash");
+
+    console.log("All password reset/validation/OTP/Email verification tests passed successfully.");
   } finally {
     console.log("Disconnecting from database...");
     await mongoose.disconnect();

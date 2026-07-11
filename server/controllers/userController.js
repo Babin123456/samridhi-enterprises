@@ -53,12 +53,14 @@ export const registerUser = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Failed to send verification email", 500));
     }
 
+    const otpHash = await bcryptjs.hash(String(otp), 12);
+
     const newUser = new UserModel({
       name,
       email,
       password,
       verifyEmail: false,
-      login_otp: otp,
+      login_otp: otpHash,
       login_expiry: otpExpiry,
       lastLogin: null,
     });
@@ -105,7 +107,8 @@ export const verifyEmailOtp = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler("Failed to resend OTP. Try again later.", 500));
       }
 
-      user.login_otp = newOtp;
+      const newOtpHash = await bcryptjs.hash(String(newOtp), 12);
+      user.login_otp = newOtpHash;
       user.login_expiry = newExpiry;
       await user.save();
 
@@ -114,7 +117,8 @@ export const verifyEmailOtp = catchAsyncErrors(async (req, res, next) => {
       );
     }
 
-    if (otp !== user.login_otp) {
+    const isOtpValid = await bcryptjs.compare(String(otp), user.login_otp || "");
+    if (!isOtpValid) {
       return next(new ErrorHandler("Invalid OTP", 401));
     }
 
@@ -164,7 +168,8 @@ export const resendOtp = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Failed to resend OTP. Try again later.", 500));
     }
 
-    user.login_otp = newOtp;
+    const newOtpHash = await bcryptjs.hash(String(newOtp), 12);
+    user.login_otp = newOtpHash;
     user.login_expiry = newExpiry;
     await user.save();
 
