@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import connectDB from "../config/connectDB.js";
-import { registerUser, resetPassword, updatePassword } from "../controllers/userController.js";
+import { registerUser, resetPassword, updatePassword, verifyOtp } from "../controllers/userController.js";
 import UserModel from "../models/userModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
@@ -132,7 +132,86 @@ const runTests = async () => {
     assert.equal(error5.statusCode, 400, "Should return 400 Bad Request");
     assert.ok(error5.message.includes("Password must be between"), "Should validate new password structure");
 
-    console.log("All password reset/validation tests passed successfully.");
+    // ----------------------------------------------------
+    // Test 6: verifyOtp success flow
+    // ----------------------------------------------------
+    console.log("Running Test 6: verifyOtp success flow...");
+    const bcryptjs = (await import("bcryptjs")).default;
+    const otpVal = "987654";
+    const otpHashed = await bcryptjs.hash(otpVal, 12);
+    const otpUser = await UserModel.create({
+      name: "OTP User",
+      email: "otp@example.com",
+      password: "ValidPassword123!",
+      verifyEmail: true,
+      forgot_password_otp: otpHashed,
+      forgot_password_expiry: new Date(Date.now() + 10 * 60 * 1000),
+      forgot_password_failedAttempts: 2,
+      forgot_password_lockUntil: null,
+    });
+
+    const req6 = {
+      body: {
+        email: "otp@example.com",
+        otp: otpVal,
+      },
+    };
+
+    const { res: res6, err: error6 } = await callController(verifyOtp, req6);
+    assert.equal(error6, null, "Should not return an error");
+    assert.equal(res6.body.success, true, "Should return success: true");
+    assert.equal(res6.body.message, "OTP verified successfully.", "Should verify OTP");
+
+    const updatedOtpUser = await UserModel.findById(otpUser._id);
+    assert.equal(updatedOtpUser.forgot_password_failedAttempts, 0, "Should reset failed attempts");
+    assert.equal(updatedOtpUser.forgot_password_lockUntil, null, "Should reset lockUntil");
+
+    // ----------------------------------------------------
+    // Test 7: verifyOtp invalid OTP flow
+    // ----------------------------------------------------
+    console.log("Running Test 7: verifyOtp invalid OTP flow...");
+    // Update user to have some OTP and reset failed attempts
+    await UserModel.findByIdAndUpdate(otpUser._id, {
+      forgot_password_otp: otpHashed,
+      forgot_password_expiry: new Date(Date.now() + 10 * 60 * 1000),
+      forgot_password_failedAttempts: 0,
+      forgot_password_lockUntil: null,
+    });
+
+    const req7 = {
+      body: {
+        email: "otp@example.com",
+        otp: "wrong_otp",
+      },
+    };
+    const { err: error7 } = await callController(verifyOtp, req7);
+    assert.ok(error7 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error7.statusCode, 400, "Should return 400 Bad Request");
+    assert.equal(error7.message, "Invalid or expired OTP. Please request a new one.");
+
+    // ----------------------------------------------------
+    // Test 8: verifyOtp lockout flow
+    // ----------------------------------------------------
+    console.log("Running Test 8: verifyOtp lockout flow...");
+    // Let's perform remaining attempts (max is 5, we did 1 in Test 7, user's failed attempts is now 1)
+    // We will do 3 more failures to reach 4 failed attempts
+    const req8 = {
+      body: {
+        email: "otp@example.com",
+        otp: "wrong_otp",
+      },
+    };
+    for (let i = 0; i < 3; i++) {
+      await callController(verifyOtp, req8);
+    }
+
+    // The 5th failure should trigger lockout and return 429
+    const { err: error8 } = await callController(verifyOtp, req8);
+    assert.ok(error8 instanceof ErrorHandler, "Should return ErrorHandler error");
+    assert.equal(error8.statusCode, 429, "Should return 429 Too Many Requests");
+    assert.equal(error8.message, "Too many OTP attempts. Please try again later.");
+
+    console.log("All password reset/validation/OTP tests passed successfully.");
   } finally {
     console.log("Disconnecting from database...");
     await mongoose.disconnect();
