@@ -743,7 +743,6 @@ export const updateUserDetails = catchAsyncErrors(async (req, res, next) => {
       error: false,
       success: true,
       user: updateUser,
-      data: updateUser,
     });
   } catch (error) {
     return next(new ErrorHandler(error.message || error, 500));
