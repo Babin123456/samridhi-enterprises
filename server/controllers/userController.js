@@ -828,7 +828,7 @@ export const getSingleUser = catchAsyncErrors(async (req, res, next) => {
 export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
   try {
     if (req.user.role !== "ADMIN") {
-      return next(new ErrorHandler("Permission denied. Managers only.", 403));
+      return next(new ErrorHandler("Permission denied. Admins only.", 403));
     }
 
     const { email, role } = req.body;
@@ -842,7 +842,10 @@ export const updateUserRole = catchAsyncErrors(async (req, res, next) => {
       );
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({
+      email,
+      ...(req.user.role === "ADMIN" ? {} : { isDeleted: false }),
+    });
 
     if (!user) {
       return next(new ErrorHandler("User not found", 404));
@@ -884,7 +887,10 @@ export const deleteUser = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Permission denied. Admins only.", 403));
     }
 
-    const user = await UserModel.findById(userId);
+    const user = await UserModel.findOne({
+      _id: userId,
+      ...(req.user.role === "ADMIN" ? {} : { isDeleted: false }),
+    });
 
     if (!user) {
       return next(new ErrorHandler("User not found", 404));
@@ -931,6 +937,10 @@ export const deleteUser = catchAsyncErrors(async (req, res, next) => {
 // Admin
 export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
   try {
+    if (req.user.role !== "ADMIN" && req.user.role !== "MANAGER") {
+      return next(new ErrorHandler("Permission denied. Admins only.", 403));
+    }
+
     const { status } = req.body;
     const { id } = req.params;
 
@@ -939,7 +949,10 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
       return next(new ErrorHandler("Invalid status provided", 400));
     }
 
-    const user = await UserModel.findById(id);
+    const user = await UserModel.findOne({
+      _id: id,
+      ...(req.user.role === "ADMIN" ? {} : { isDeleted: false }),
+    });
     if (!user) {
       return next(new ErrorHandler("User not found", 404));
     }

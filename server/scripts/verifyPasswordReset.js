@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import connectDB from "../config/connectDB.js";
-import { registerUser, resetPassword, updatePassword, verifyOtp, verifyEmailOtp, resendOtp, updateUserDetails } from "../controllers/userController.js";
+import { registerUser, resetPassword, updatePassword, verifyOtp, verifyEmailOtp, resendOtp, updateUserDetails, getAllUsers, getSingleUser, deleteUser, updateUserStatus } from "../controllers/userController.js";
 import UserModel from "../models/userModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
@@ -333,7 +333,90 @@ const runTests = async () => {
     assert.ok(res13.body.user, "Should contain the user key");
     assert.equal(res13.body.data, undefined, "Should NOT contain the duplicate data key");
 
-    console.log("All password reset/validation/OTP/Email verification/User details tests passed successfully.");
+    // ----------------------------------------------------
+    // Test 14: MANAGER role soft-delete visibility check
+    // ----------------------------------------------------
+    console.log("Running Test 14: MANAGER role soft-delete visibility check...");
+    const softDeletedUser = await UserModel.create({
+      name: "Soft Deleted",
+      email: "softdeleted@example.com",
+      password: "ValidPassword123!",
+      verifyEmail: true,
+      isDeleted: true,
+      deletedAt: new Date(),
+    });
+
+    const req14List = {
+      user: { role: "MANAGER", _id: dummyUser._id },
+      query: { page: 1, limit: 10, search: "" },
+    };
+
+    const { res: res14List, err: error14List } = await callController(getAllUsers, req14List);
+    assert.equal(error14List, null);
+    const hasSoftDeleted = res14List.body.data.some((u) => u.email === "softdeleted@example.com");
+    assert.equal(hasSoftDeleted, false, "MANAGER should not see soft-deleted users in listing");
+
+    const req14Get = {
+      user: { role: "MANAGER", _id: dummyUser._id },
+      params: { id: softDeletedUser._id },
+    };
+    const { err: error14Get } = await callController(getSingleUser, req14Get);
+    assert.ok(error14Get instanceof ErrorHandler);
+    assert.equal(error14Get.statusCode, 404, "MANAGER should get 404 for soft-deleted user");
+    assert.equal(error14Get.message, "User not found");
+
+    // ----------------------------------------------------
+    // Test 15: MANAGER role cannot update status or delete soft-deleted user
+    // ----------------------------------------------------
+    console.log("Running Test 15: MANAGER role cannot manage soft-deleted users...");
+    const req15Delete = {
+      user: { role: "MANAGER", _id: dummyUser._id },
+      params: { id: softDeletedUser._id },
+    };
+    const { err: error15Delete } = await callController(deleteUser, req15Delete);
+    assert.ok(error15Delete instanceof ErrorHandler);
+    assert.equal(error15Delete.statusCode, 404, "MANAGER should get 404 on deleting soft-deleted user");
+
+    const req15Status = {
+      user: { role: "MANAGER", _id: dummyUser._id },
+      params: { id: softDeletedUser._id },
+      body: { status: "Suspended" },
+    };
+    const { err: error15Status } = await callController(updateUserStatus, req15Status);
+    assert.ok(error15Status instanceof ErrorHandler);
+    assert.equal(error15Status.statusCode, 404, "MANAGER should get 404 on updating status of soft-deleted user");
+
+    // ----------------------------------------------------
+    // Test 16: ADMIN role can see and manage soft-deleted users
+    // ----------------------------------------------------
+    console.log("Running Test 16: ADMIN role can see and manage soft-deleted users...");
+    const req16List = {
+      user: { role: "ADMIN", _id: dummyUser._id },
+      query: { page: 1, limit: 10, search: "" },
+    };
+    const { res: res16List, err: error16List } = await callController(getAllUsers, req16List);
+    assert.equal(error16List, null);
+    const hasSoftDeletedAdmin = res16List.body.data.some((u) => u.email === "softdeleted@example.com");
+    assert.equal(hasSoftDeletedAdmin, true, "ADMIN should see soft-deleted users in listing");
+
+    const req16Get = {
+      user: { role: "ADMIN", _id: dummyUser._id },
+      params: { id: softDeletedUser._id },
+    };
+    const { res: res16Get, err: error16Get } = await callController(getSingleUser, req16Get);
+    assert.equal(error16Get, null);
+    assert.equal(res16Get.body.data.email, "softdeleted@example.com", "ADMIN should fetch soft-deleted user");
+
+    const req16Status = {
+      user: { role: "ADMIN", _id: dummyUser._id },
+      params: { id: softDeletedUser._id },
+      body: { status: "Suspended" },
+    };
+    const { res: res16Status, err: error16Status } = await callController(updateUserStatus, req16Status);
+    assert.equal(error16Status, null);
+    assert.equal(res16Status.body.user.status, "Suspended", "ADMIN should successfully update status of soft-deleted user");
+
+    console.log("All password reset/validation/OTP/Email verification/User details/Admin visibility tests passed successfully.");
   } finally {
     console.log("Disconnecting from database...");
     await mongoose.disconnect();
