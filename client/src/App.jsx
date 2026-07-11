@@ -13,6 +13,8 @@ import CompareTray from "./components/CompareTray";
 import Loader from "./extras/Loader";
 import SessionTimeoutHandler from "./components/SessionTimeoutHandler";
 import ScrollToTop from "./extras/ScrollToTop";
+import ScrollRestoration from "./extras/ScrollRestoration";
+import WhatsAppButton from "./extras/Whatsapp";
 
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/auth/Login"));
@@ -76,7 +78,9 @@ function App() {
         pauseOnHover
       />
       <Header />
+      <ScrollRestoration />
       <ScrollToTop />
+      <WhatsAppButton />
 
       <main id="main-content" tabIndex={-1}>
       <Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader fullScreen={false} /></div>}>
