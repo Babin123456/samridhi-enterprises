@@ -154,6 +154,11 @@ const Checkout = () => {
       toast.error("Please fill all required address fields");
       return;
     }
+
+    if (!/^\d{10}$/.test(form.phone)) {
+      toast.error("Please enter a valid 10-digit phone number");
+      return;
+    }
     if (paymentMethod === "Online" && !screenshot) {
       toast.error("Please upload your payment screenshot");
       return;
@@ -442,7 +447,7 @@ const Checkout = () => {
                       <span className="text-gray-400 dark:text-gray-500">x{item.quantity}</span>
                     </span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                      ₹{item.price?.toLocaleString()}
+                      ₹{((item.price || 0) * (item.quantity || 1)).toLocaleString()}
                     </span>
                   </div>
                 ))}
