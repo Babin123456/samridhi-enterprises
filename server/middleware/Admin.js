@@ -3,10 +3,18 @@ import User from "../models/userModel.js";
 
 const admin = async (req, res, next) => {
   try {
-    // Always validate against the latest user data in DB.
-    // This ensures role changes take effect immediately even if the JWT was issued earlier.
+    let token;
 
-    const token = req.headers.authorization?.split(" ")[1];
+    if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    } 
+    else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } 
+    else if (req.headers.authorization) {
+      token = req.headers.authorization;
+    }
+
     if (!token || token === "null") {
       return res.status(401).json({
         success: false,
@@ -16,7 +24,6 @@ const admin = async (req, res, next) => {
 
     const decodedData = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Re-fetch the user from DB for every admin request.
     const user = await User.findById(decodedData.id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
@@ -46,4 +53,3 @@ const admin = async (req, res, next) => {
 };
 
 export default admin;
-
