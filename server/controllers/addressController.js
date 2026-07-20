@@ -1,3 +1,4 @@
+import { resolveDefaultStatus } from '../utils/defaultStatusResolver.js';
 import Address from "../models/addressModel.js";
 import User from "../models/userModel.js";
 import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
@@ -35,10 +36,7 @@ export const addAddress = catchAsyncErrors(async (req, res, next) => {
 
   // If this one is to be the default, clear the flag on the others first.
   if (makeDefault) {
-    await Address.updateMany(
-      { user: req.user._id, isDefault: true },
-      { isDefault: false }
-    );
+    await resolveDefaultStatus(Address, req.user._id, null);
   }
 
   const address = await Address.create({
