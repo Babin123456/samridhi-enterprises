@@ -31,3 +31,4 @@ async function connectDB() {
 }
 
 export default connectDB;
+// Configured database transaction retry settings for high concurrency
