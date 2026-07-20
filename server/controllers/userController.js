@@ -1052,3 +1052,15 @@ export const updateUserStatus = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
+
+// Added for #350: Assign granular permissions to users
+export const assignUserPermissions = catchAsyncErrors(async (req, res, next) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return next(new ErrorHandler("User not found", 404));
+
+  const { permissions } = req.body;
+  user.permissions = permissions;
+  await user.save();
+
+  res.status(200).json({ success: true, user });
+});

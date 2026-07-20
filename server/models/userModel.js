@@ -91,6 +91,7 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    permissions: [{ type: String }],
     role: {
       type: String,
       enum: ["ADMIN", "MANAGER", "USER"],
