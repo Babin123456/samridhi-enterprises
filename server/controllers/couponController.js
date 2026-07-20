@@ -189,3 +189,14 @@ export const validateCoupon = catchAsyncErrors(async (req, res, next) => {
     payable: Math.max(0, subtotal - discount),
   });
 });
+
+// Added for #345: Validate and increment coupon usage atomically
+import { verifyCouponLimitAtomic } from "../utils/couponUsageLock.js";
+export const validateCouponAtomic = catchAsyncErrors(async (req, res, next) => {
+  const { code } = req.body;
+  const coupon = await verifyCouponLimitAtomic(Coupon, code.toUpperCase().trim());
+  if (!coupon) {
+    return next(new ErrorHandler("Coupon invalid or usage limit reached", 400));
+  }
+  res.status(200).json({ success: true, message: "Coupon applied successfully", coupon });
+});

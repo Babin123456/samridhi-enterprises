@@ -1,3 +1,4 @@
+import { validateCouponAtomic } from '../controllers/couponController.js';
 import express from "express";
 import {
   createCoupon,
@@ -13,6 +14,7 @@ const couponRouter = express.Router();
 
 // User: validate/apply a coupon against their own cart.
 couponRouter.post("/validate", auth, validateCoupon);
+couponRouter.post("/validate-atomic", auth, validateCouponAtomic);
 
 // Admin: full coupon management.
 couponRouter.post("/admin/create", auth, admin, createCoupon);
