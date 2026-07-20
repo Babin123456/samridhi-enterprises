@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import upload from "../middleware/multer.js";
 import {
+  addWarehouseStock,
   addPart,
   getAllParts,
   getPartById,
@@ -49,6 +50,7 @@ const recommendLimiter = rateLimit({
 const partRouter = express.Router();
 
 partRouter.post("/add", upload.array("images", 5), auth, admin, addPart);
+partRouter.post("/warehouse-stock/:id", auth, admin, addWarehouseStock);
 partRouter.get("/get", browseLimiter, getAllParts);
 partRouter.get("/get/:id", browseLimiter, getPartById);
 partRouter.get("/get/:id/similar", browseLimiter, getSimilarParts);

@@ -9,6 +9,10 @@ const partSchema = new mongoose.Schema(
     name: { type: String, required: true },
     description: String,
 
+    warehouseStocks: [{
+      warehouse: { type: mongoose.Schema.Types.ObjectId, ref: "Warehouse" },
+      stockQuantity: { type: Number, default: 0 }
+    }],
     price: {
       type: Number,
       required: true,
