@@ -563,3 +563,17 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
     });
   }
 );
+
+// Added for #348: RMA Request initiation endpoint
+import RMA from "../models/rmaModel.js";
+export const requestRMA = catchAsyncErrors(async (req, res, next) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) return next(new ErrorHandler("Order not found", 404));
+
+  const { reason, items } = req.body;
+  const rma = await RMA.create({ order: order._id, user: req.user._id, reason, items });
+  order.rmaRequested = true;
+  await order.save();
+
+  res.status(201).json({ success: true, rma });
+});

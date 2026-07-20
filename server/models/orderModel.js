@@ -28,6 +28,7 @@ const orderSchema = new mongoose.Schema(
     },
     itemsTotal: { type: Number, required: true, min: 0 },
     couponCode: { type: String, default: "" },
+    rmaRequested: { type: Boolean, default: false },
     discount: { type: Number, default: 0, min: 0 },
     // grandTotal = itemsTotal − discount. Not required so that admin
     // operations calling .save() on pre-coupon orders do not fail
