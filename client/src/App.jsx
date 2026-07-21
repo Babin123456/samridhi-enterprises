@@ -54,7 +54,7 @@ function App() {
 
   useEffect(() => {
     dispatch(fetchCart());
-    if (localStorage.getItem("token")) {
+    if (localStorage.getItem("user")) {
       dispatch(getSingleDetail());
       dispatch(fetchWishlist());
     }
