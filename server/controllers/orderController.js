@@ -218,6 +218,7 @@ export const createOrder = catchAsyncErrors(async (req, res, next) => {
       orderStatus,
       paymentScreenshot,
       upiReference: upiReference || "",
+      statusHistory: [{ status: orderStatus, changedAt: new Date() }],
     });
 
     // Link the order to the user's history WITHOUT calling user.save(), which
@@ -351,6 +352,8 @@ export const cancelMyOrder = catchAsyncErrors(async (req, res, next) => {
 
   order.orderStatus = "Cancelled";
   order.rejectionReason = "Cancelled by customer";
+  if (!order.statusHistory) order.statusHistory = [];
+  order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
 
   // Restore stock once, guarded by stockRestored — identical to the restore
   // used by adminVerifyPayment (reject) and adminUpdateOrderStatus (Cancelled).
@@ -431,6 +434,8 @@ export const adminVerifyPayment = catchAsyncErrors(async (req, res, next) => {
     order.orderStatus = "Confirmed";
     order.verifiedAt = new Date();
     order.rejectionReason = "";
+    if (!order.statusHistory) order.statusHistory = [];
+    order.statusHistory.push({ status: "Confirmed", changedAt: new Date() });
     await order.save();
 
     try {
@@ -454,6 +459,8 @@ export const adminVerifyPayment = catchAsyncErrors(async (req, res, next) => {
   order.paymentStatus = "Failed";
   order.orderStatus = "Cancelled";
   order.rejectionReason = rejectionReason || "Payment could not be verified";
+  if (!order.statusHistory) order.statusHistory = [];
+  order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
 
   // Restore stock if not already restored
   if (!order.stockRestored) {
@@ -514,9 +521,10 @@ const VALID_TRANSITIONS = {
 
 export const adminUpdateOrderStatus = catchAsyncErrors(
   async (req, res, next) => {
-    const { orderStatus } = req.body;
+    const { orderStatus, status, carrier, trackingNumber } = req.body;
+    const targetStatus = orderStatus || status;
 
-    if (!FULFILLMENT_STATUSES.includes(orderStatus)) {
+    if (!targetStatus || !FULFILLMENT_STATUSES.includes(targetStatus)) {
       return next(new ErrorHandler(`orderStatus must be one of: ${FULFILLMENT_STATUSES.join(", ")}`, 400));
     }
 
@@ -530,23 +538,31 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
 
     const currentStatus = order.orderStatus;
     const allowed = VALID_TRANSITIONS[currentStatus] || [];
-    if (!allowed.includes(orderStatus)) {
-      return next(new ErrorHandler(`Invalid status transition from ${currentStatus} to ${orderStatus}. Allowed transitions: ${allowed.join(", ") || "none"}`, 400));
+    if (targetStatus !== currentStatus && !allowed.includes(targetStatus)) {
+      return next(new ErrorHandler(`Invalid status transition from ${currentStatus} to ${targetStatus}. Allowed transitions: ${allowed.join(", ") || "none"}`, 400));
     }
 
     // Guard: an order whose payment has not succeeded should not be marked as
     // physically fulfilled. It can still be Cancelled.
     if (
       order.paymentStatus !== "Success" &&
-      ["Processing", "Shipped", "Delivered"].includes(orderStatus)
+      ["Processing", "Shipped", "Delivered"].includes(targetStatus)
     ) {
       return next(new ErrorHandler("Cannot advance fulfilment until the order's payment is verified", 400));
     }
 
     const previousStatus = order.orderStatus;
-    order.orderStatus = orderStatus;
+    order.orderStatus = targetStatus;
 
-    if (orderStatus === "Cancelled" && !order.stockRestored) {
+    if (carrier !== undefined) order.carrier = carrier;
+    if (trackingNumber !== undefined) order.trackingNumber = trackingNumber;
+
+    if (!order.statusHistory) order.statusHistory = [];
+    if (previousStatus !== targetStatus || order.statusHistory.length === 0) {
+      order.statusHistory.push({ status: targetStatus, changedAt: new Date() });
+    }
+
+    if (targetStatus === "Cancelled" && !order.stockRestored) {
       // Restore stock
       for (const item of order.items) {
         if (item.part) {
@@ -557,9 +573,28 @@ export const adminUpdateOrderStatus = catchAsyncErrors(
     }
     await order.save();
 
+    if (carrier || trackingNumber || targetStatus === "Shipped") {
+      try {
+        await sendEmail({
+          sendTo: order.user?.email,
+          subject: `Shipment Update for Order #${order._id}`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <h2 style="color:#111827;">Order Shipment Update</h2>
+            <p style="color:#555;">Dear ${order.user?.name || "Customer"},</p>
+            <p style="color:#555;">Your order <strong>${order._id}</strong> status is now: <strong>${order.orderStatus}</strong>.</p>
+            ${order.carrier ? `<p style="color:#555;"><strong>Carrier:</strong> ${order.carrier}</p>` : ""}
+            ${order.trackingNumber ? `<p style="color:#555;"><strong>Tracking Number:</strong> ${order.trackingNumber}</p>` : ""}
+            <p style="color:#555;">Thank you for shopping with Samridhi Enterprises!</p>
+          </div>`,
+        });
+      } catch (mailErr) {
+        console.error("Shipment email failed:", mailErr.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
-      message: `Order status updated to ${orderStatus}`,
+      message: `Order status updated to ${targetStatus}`,
       order,
     });
   }

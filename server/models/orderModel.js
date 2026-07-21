@@ -65,6 +65,14 @@ const orderSchema = new mongoose.Schema(
     verifiedAt: { type: Date, default: null },
     rejectionReason: { type: String, default: "" },
     stockRestored: { type: Boolean, default: false },
+    carrier: { type: String, default: "" },
+    trackingNumber: { type: String, default: "" },
+    statusHistory: [
+      {
+        status: { type: String, required: true },
+        changedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

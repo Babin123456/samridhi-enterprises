@@ -165,11 +165,11 @@ export const adminGetSalesAnalytics = createAsyncThunk(
 // Admin — update order fulfilment status
 export const adminUpdateOrderStatus = createAsyncThunk(
   "order/adminUpdateStatus",
-  async ({ id, orderStatus }, { rejectWithValue }) => {
+  async ({ id, orderStatus, carrier, trackingNumber }, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.put(
         `${API_URL}/admin/status/${id}`,
-        { orderStatus },
+        { orderStatus, carrier, trackingNumber },
         authConfig()
       );
       return response.data.order;
