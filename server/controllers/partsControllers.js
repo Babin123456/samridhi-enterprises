@@ -164,6 +164,12 @@ export const createOrUpdateReview = catchAsyncErrors(async (req, res, next) => {
 
   if (!part) return next(new ErrorHandler("Part not found", 404));
 
+  const hasPurchased = await Order.exists({
+    user: req.user._id,
+    "items.part": part._id,
+    orderStatus: "Delivered",
+  });
+  const verifiedPurchase = Boolean(hasPurchased);
 
   const existingReviewIndex = part.reviews.findIndex(
     (r) => r.user.toString() === req.user._id.toString()
@@ -172,8 +178,15 @@ export const createOrUpdateReview = catchAsyncErrors(async (req, res, next) => {
   if (existingReviewIndex !== -1) {
     part.reviews[existingReviewIndex].comment = comment;
     part.reviews[existingReviewIndex].rating = Number(rating);
+    part.reviews[existingReviewIndex].verifiedPurchase = verifiedPurchase;
   } else {
-    part.reviews.push({ user: req.user._id, name: req.user.name, rating: Number(rating), comment });
+    part.reviews.push({
+      user: req.user._id,
+      name: req.user.name,
+      rating: Number(rating),
+      comment,
+      verifiedPurchase,
+    });
   }
 
   part.numOfReviews = part.reviews.length;
