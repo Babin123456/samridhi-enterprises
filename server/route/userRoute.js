@@ -35,10 +35,10 @@ const authOtpIpLimit = createAuthOtpLimiter({
   message: "Too many requests. Please try again later.",
 });
 
-userRouter.post("/register", registerUser);
+userRouter.post("/register", authOtpIpLimit, registerUser);
 
 
-userRouter.post("/verify-email", verifyEmailOtp);
+userRouter.post("/verify-email", authOtpIpLimit, verifyEmailOtp);
 
 userRouter.post("/resend-otp", authOtpIpLimit, resendOtp);
 
