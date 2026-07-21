@@ -43,7 +43,7 @@ export const addPart = catchAsyncErrors(async (req, res, next) => {
 
 // Get all parts
 export const getAllParts = catchAsyncErrors(async (req, res) => {
-  const { vehicleId } = req.query;
+  const { vehicleId, page, limit } = req.query;
 
   const filter = { isDeleted: false };
 
@@ -51,18 +51,35 @@ export const getAllParts = catchAsyncErrors(async (req, res) => {
     filter.vehicleCompatibility = vehicleId;
   }
 
-  const parts = await Part.find(filter).populate(
-    "vehicleCompatibility",
-    "name"
-  );
+  const total = await Part.countDocuments(filter);
+
+  const isPaginated = page !== undefined || limit !== undefined;
+  const pageNum = parseInt(page, 10) > 0 ? parseInt(page, 10) : 1;
+  const limitNum = limit !== undefined ? Math.max(1, parseInt(limit, 10) || 10) : (isPaginated ? 10 : (total || 10));
+  const skip = (pageNum - 1) * limitNum;
+
+  const parts = await Part.find(filter)
+    .populate("vehicleCompatibility", "name")
+    .skip(skip)
+    .limit(limitNum);
+
+  const totalPages = Math.ceil(total / limitNum) || 1;
+  const hasNextPage = pageNum < totalPages;
+  const hasPreviousPage = pageNum > 1;
 
   res.status(200).json({
-
     success: true,
     count: parts.length,
+    total,
+    page: pageNum,
+    limit: limitNum,
+    totalPages,
+    hasNextPage,
+    hasPreviousPage,
     parts,
   });
 });
+
 
 // Get single part
 export const getPartById = catchAsyncErrors(async (req, res, next) => {
