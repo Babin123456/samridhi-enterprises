@@ -47,7 +47,7 @@ userRouter.post("/login", authOtpIpLimit, loginUser);
 
 userRouter.get("/logout", logoutUser);
 
-userRouter.put("/upload-avatar", upload.single("avatar"), auth, uploadAvatar);
+userRouter.put("/upload-avatar", auth, upload.single("avatar"), uploadAvatar);
 
 userRouter.put("/update/password", auth, updatePassword);
 

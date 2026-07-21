@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import connectDB from "../config/connectDB.js";
 import { registerUser, resetPassword, updatePassword, verifyOtp, verifyEmailOtp, resendOtp, updateUserDetails, getAllUsers, getSingleUser, deleteUser, updateUserStatus } from "../controllers/userController.js";
+import userRouter from "../route/userRoute.js";
 import UserModel from "../models/userModel.js";
 import ErrorHandler from "../utils/errorHandler.js";
 
@@ -415,6 +416,17 @@ const runTests = async () => {
     const { res: res16Status, err: error16Status } = await callController(updateUserStatus, req16Status);
     assert.equal(error16Status, null);
     assert.equal(res16Status.body.user.status, "Suspended", "ADMIN should successfully update status of soft-deleted user");
+
+    // ----------------------------------------------------
+    // Test 17: Route middleware order for /upload-avatar
+    // ----------------------------------------------------
+    console.log("Running Test 17: verify auth middleware precedes upload on /upload-avatar route...");
+    const avatarRouteLayer = userRouter.stack.find(
+      (layer) => layer.route && layer.route.path === "/upload-avatar"
+    );
+    assert.ok(avatarRouteLayer, "/upload-avatar route layer should exist");
+    const middlewareNames = avatarRouteLayer.route.stack.map((s) => s.name);
+    assert.equal(middlewareNames[0], "auth", "auth middleware must execute BEFORE multer file processing");
 
     console.log("All password reset/validation/OTP/Email verification/User details/Admin visibility tests passed successfully.");
   } finally {
