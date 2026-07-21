@@ -118,6 +118,22 @@ const AdminOrders = () => {
     });
   };
 
+  const handleDownloadInvoice = async (orderId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/orders/admin/${orderId}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch invoice");
+      const htmlStr = await response.text();
+      const win = window.open("", "_blank");
+      win.document.write(htmlStr);
+      win.document.close();
+    } catch (err) {
+      toast.error("Failed to download invoice");
+    }
+  };
+
   if (loading && (!adminOrders || adminOrders.length === 0)) return <Loader />;
 
   return (
@@ -276,6 +292,13 @@ const AdminOrders = () => {
                         </button>
                       </div>
                     )}
+
+                    <button
+                      onClick={() => handleDownloadInvoice(order._id)}
+                      className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition border border-indigo-200"
+                    >
+                      📄 Download Invoice
+                    </button>
 
                     {/* Fulfilment status control — available once the order is
                         no longer awaiting payment verification and not in a

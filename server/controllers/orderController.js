@@ -9,6 +9,7 @@ import catchAsyncErrors from "../middleware/catchAsyncErrors.js";
 import { uploadImage } from "../utils/cloudinary.js";
 import sendEmail from "../config/sendEmail.js";
 import orderReceiptHtml from "../template/orderReceiptTemplate.js";
+import generateReceiptHTML from "../template/generateReceipt.js";
 import generateAdminNewOrderEmail from "../template/adminNewOrderTemplate.js";
 import notifyAdmins from "../utils/adminNotifier.js";
 
@@ -578,3 +579,37 @@ export const requestRMA = catchAsyncErrors(async (req, res, next) => {
 
   res.status(201).json({ success: true, rma });
 });
+
+// GET /api/orders/:id/invoice
+export const getOrderInvoice = catchAsyncErrors(async (req, res, next) => {
+  const order = await Order.findById(req.params.id).populate("user", "name email");
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+
+  const isOwner = order.user && order.user._id.toString() === req.user._id.toString();
+  const isAdminOrManager = req.user.role === "ADMIN" || req.user.role === "MANAGER";
+
+  if (!isOwner && !isAdminOrManager) {
+    return next(new ErrorHandler("Not authorized to view this invoice", 403));
+  }
+
+  const html = generateReceiptHTML(order);
+  res.setHeader("Content-Type", "text/html");
+  res.setHeader("Content-Disposition", `inline; filename="invoice-${order._id}.html"`);
+  return res.status(200).send(html);
+});
+
+// GET /api/orders/admin/:id/invoice
+export const getAdminOrderInvoice = catchAsyncErrors(async (req, res, next) => {
+  const order = await Order.findById(req.params.id).populate("user", "name email");
+  if (!order) {
+    return next(new ErrorHandler("Order not found", 404));
+  }
+
+  const html = generateReceiptHTML(order);
+  res.setHeader("Content-Type", "text/html");
+  res.setHeader("Content-Disposition", `inline; filename="invoice-${order._id}.html"`);
+  return res.status(200).send(html);
+});
+

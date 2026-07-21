@@ -241,6 +241,22 @@ const OrderHistory = () => {
     }
   }, [error, dispatch]);
 
+  const handleDownloadInvoice = async (orderId) => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/orders/${orderId}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch invoice");
+      const htmlStr = await response.text();
+      const win = window.open("", "_blank");
+      win.document.write(htmlStr);
+      win.document.close();
+    } catch (err) {
+      toast.error("Failed to download invoice");
+    }
+  };
+
   if (loading) return <Loader />;
 
   if (!myOrders || myOrders.length === 0) {
@@ -363,6 +379,18 @@ const OrderHistory = () => {
                           : "Cancel Order"}
                       </button>
                     )}
+                    <button
+                      onClick={() => handleDownloadInvoice(order._id)}
+                      disabled={!canDownload}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-white font-semibold text-sm shadow hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      title={
+                        canDownload
+                          ? "Download HTML Invoice"
+                          : "Invoice available after order is confirmed"
+                      }
+                    >
+                      Download Invoice
+                    </button>
                     <button
                       onClick={() => generateReceiptPDF(order, user)}
                       disabled={!canDownload}
